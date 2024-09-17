@@ -10,7 +10,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:9000
+          issuer-uri: http://localhost:9001
       client:
         registration:
           messaging-client-client-credentials:
@@ -35,7 +35,7 @@ spring:
             client-name: messaging-client-token-exchange-with-impersonation
         provider:
           spring:
-            issuer-uri: http://localhost:9000
+            issuer-uri: http://localhost:9001
 
 messages:
   base-uri: http://127.0.0.1:8090

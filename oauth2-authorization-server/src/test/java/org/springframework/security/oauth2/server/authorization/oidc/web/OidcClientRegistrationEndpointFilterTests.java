@@ -578,7 +578,7 @@ public class OidcClientRegistrationEndpointFilterTests {
 				.idTokenSignedResponseAlgorithm(SignatureAlgorithm.RS256.getName())
 				.scope("scope1")
 				.scope("scope2")
-				.registrationClientUrl("https://auth-server:9000/connect/register?client_id=client-id")
+				.registrationClientUrl("https://auth-server:9001/connect/register?client_id=client-id")
 				.build();
 		return clientRegistration;
 		// @formatter:on

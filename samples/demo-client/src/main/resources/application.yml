@@ -96,7 +96,7 @@ spring:
             client-name: mtls-self-signed-demo-client-client-credentials
         provider:
           spring:
-            issuer-uri: http://localhost:9000
+            issuer-uri: http://localhost:9001
           spring-tls:
             token-uri: https://localhost:9443/oauth2/token
 

@@ -18,17 +18,17 @@ The purpose of this guide is to demonstrate a general pattern for building multi
 
 The xref:protocol-endpoints.adoc#oidc-provider-configuration-endpoint[OpenID Connect 1.0 Provider Configuration Endpoint] and xref:protocol-endpoints.adoc#oauth2-authorization-server-metadata-endpoint[OAuth2 Authorization Server Metadata Endpoint] allow for path components in the issuer identifier value, which effectively enables supporting multiple issuers per host.
 
-For example, an https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest[OpenID Provider Configuration Request] "http://localhost:9000/issuer1/.well-known/openid-configuration" or an https://datatracker.ietf.org/doc/html/rfc8414#section-3.1[Authorization Server Metadata Request] "http://localhost:9000/.well-known/oauth-authorization-server/issuer1" would return the following configuration metadata:
+For example, an https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest[OpenID Provider Configuration Request] "http://localhost:9001/issuer1/.well-known/openid-configuration" or an https://datatracker.ietf.org/doc/html/rfc8414#section-3.1[Authorization Server Metadata Request] "http://localhost:9001/.well-known/oauth-authorization-server/issuer1" would return the following configuration metadata:
 
 [source,json]
 ----
 {
-  "issuer": "http://localhost:9000/issuer1",
-  "authorization_endpoint": "http://localhost:9000/issuer1/oauth2/authorize",
-  "token_endpoint": "http://localhost:9000/issuer1/oauth2/token",
-  "jwks_uri": "http://localhost:9000/issuer1/oauth2/jwks",
-  "revocation_endpoint": "http://localhost:9000/issuer1/oauth2/revoke",
-  "introspection_endpoint": "http://localhost:9000/issuer1/oauth2/introspect",
+  "issuer": "http://localhost:9001/issuer1",
+  "authorization_endpoint": "http://localhost:9001/issuer1/oauth2/authorize",
+  "token_endpoint": "http://localhost:9001/issuer1/oauth2/token",
+  "jwks_uri": "http://localhost:9001/issuer1/oauth2/jwks",
+  "revocation_endpoint": "http://localhost:9001/issuer1/oauth2/revoke",
+  "introspection_endpoint": "http://localhost:9001/issuer1/oauth2/introspect",
   ...
 }
 ----
@@ -102,7 +102,7 @@ TIP: Click on the "Expand folded text" icon in the code sample above to display 
 <4> Obtain the `JdbcRegisteredClientRepository` that is mapped to the _"requested"_ issuer identifier indicated by `AuthorizationServerContext.getIssuer()`.
 <5> If unable to find `JdbcRegisteredClientRepository`, then error since the _"requested"_ issuer identifier is not in the allowlist of approved issuers.
 
-IMPORTANT: Explicitly configuring the issuer identifier via `AuthorizationServerSettings.builder().issuer("http://localhost:9000")` forces to a single-tenant configuration. Avoid explicitly configuring the issuer identifier when using a multi-tenant hosting configuration.
+IMPORTANT: Explicitly configuring the issuer identifier via `AuthorizationServerSettings.builder().issuer("http://localhost:9001")` forces to a single-tenant configuration. Avoid explicitly configuring the issuer identifier when using a multi-tenant hosting configuration.
 
 In the preceding example, each of the `JdbcRegisteredClientRepository` instances are configured with a `JdbcTemplate` and associated `DataSource`.
 This is important in a multi-tenant configuration as a primary requirement is to have the ability to isolate the data from each tenant.

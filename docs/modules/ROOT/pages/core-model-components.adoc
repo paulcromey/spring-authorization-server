@@ -52,7 +52,7 @@ spring:
             scope: scope-a
         provider:
           spring:
-            issuer-uri: http://localhost:9000
+            issuer-uri: http://localhost:9001
 ----
 
 A `RegisteredClient` has metadata (attributes) associated with its unique Client Identifier and is defined as follows:

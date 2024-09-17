@@ -31,7 +31,7 @@ To set up a Redirect URI, choose a `registrationId` (such as `google`, `my-clien
 
 NOTE: The `registrationId` is a unique identifier for the `ClientRegistration` in Spring Security. The default Redirect URI template is `\{baseUrl\}/login/oauth2/code/\{registrationId\}`. See {spring-security-reference-base-url}/servlet/oauth2/login/core.html#oauth2login-sample-redirect-uri[Setting the Redirect URI] in the Spring Security reference for more information.
 
-TIP: For example, testing locally on port `9000` with a `registrationId` of `google`, your Redirect URI would be `http://localhost:9000/login/oauth2/code/google`. Enter this value as the Redirect URI when setting up the application with your provider.
+TIP: For example, testing locally on port `9001` with a `registrationId` of `google`, your Redirect URI would be `http://localhost:9001/login/oauth2/code/google`. Enter this value as the Redirect URI when setting up the application with your provider.
 
 Once you've completed the set-up process with your social login provider, you should have obtained credentials (a Client ID and Client Secret).
 In addition, you will need to reference the provider's documentation and take note of the following values:

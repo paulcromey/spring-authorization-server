@@ -54,7 +54,7 @@ public class AuthorizationServerSettingsTests {
 		String oidcClientRegistrationEndpoint = "/connect/v1/register";
 		String oidcUserInfoEndpoint = "/connect/v1/userinfo";
 		String oidcLogoutEndpoint = "/connect/v1/logout";
-		String issuer = "https://example.com:9000";
+		String issuer = "https://example.com:9001";
 
 		AuthorizationServerSettings authorizationServerSettings = AuthorizationServerSettings.builder()
 			.issuer(issuer)
@@ -84,7 +84,7 @@ public class AuthorizationServerSettingsTests {
 
 	@Test
 	public void buildWhenIssuerSetAndMultipleIssuersAllowedTrueThenThrowIllegalArgumentException() {
-		String issuer = "https://example.com:9000";
+		String issuer = "https://example.com:9001";
 		assertThatIllegalArgumentException()
 			.isThrownBy(() -> AuthorizationServerSettings.builder().issuer(issuer).multipleIssuersAllowed(true).build())
 			.withMessage(

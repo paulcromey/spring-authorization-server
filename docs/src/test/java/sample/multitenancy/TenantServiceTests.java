@@ -42,9 +42,9 @@ import static org.mockito.Mockito.when;
  */
 public class TenantServiceTests {
 
-	private static final String ISSUER1 = "http://localhost:9000/issuer1";
+	private static final String ISSUER1 = "http://localhost:9001/issuer1";
 
-	private static final String ISSUER2 = "http://localhost:9000/issuer2";
+	private static final String ISSUER2 = "http://localhost:9001/issuer2";
 
 	private AuthorizationServerContext authorizationServerContext;
 
