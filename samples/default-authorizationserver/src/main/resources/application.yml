@@ -1,5 +1,5 @@
 server:
-  port: 9001
+  port: 9000
 
 logging:
   level:
@@ -33,4 +33,4 @@ spring:
                 - "profile"
                 - "message.read"
                 - "message.write"
-            require-authorization-consent: false
+            require-authorization-consent: true
