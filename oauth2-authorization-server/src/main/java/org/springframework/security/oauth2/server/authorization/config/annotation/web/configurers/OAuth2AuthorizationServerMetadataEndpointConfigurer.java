@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 the original author or authors.
+ * Copyright 2020-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.ObjectPostProcessor;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationServerMetadata;
+import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.web.OAuth2AuthorizationServerMetadataEndpointFilter;
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
@@ -35,23 +36,29 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
  * @see OAuth2AuthorizationServerMetadataEndpointFilter
  */
 public final class OAuth2AuthorizationServerMetadataEndpointConfigurer extends AbstractOAuth2Configurer {
+
 	private RequestMatcher requestMatcher;
+
 	private Consumer<OAuth2AuthorizationServerMetadata.Builder> authorizationServerMetadataCustomizer;
+
 	private Consumer<OAuth2AuthorizationServerMetadata.Builder> defaultAuthorizationServerMetadataCustomizer;
 
 	/**
 	 * Restrict for internal use only.
+	 * @param objectPostProcessor an {@code ObjectPostProcessor}
 	 */
 	OAuth2AuthorizationServerMetadataEndpointConfigurer(ObjectPostProcessor<Object> objectPostProcessor) {
 		super(objectPostProcessor);
 	}
 
 	/**
-     * Sets the {@code Consumer} providing access to the {@link OAuth2AuthorizationServerMetadata.Builder}
-	 * allowing the ability to customize the claims of the Authorization Server's configuration.
-	 *
-	 * @param authorizationServerMetadataCustomizer the {@code Consumer} providing access to the {@link OAuth2AuthorizationServerMetadata.Builder}
-     * @return the {@link OAuth2AuthorizationServerMetadataEndpointConfigurer} for further configuration
+	 * Sets the {@code Consumer} providing access to the
+	 * {@link OAuth2AuthorizationServerMetadata.Builder} allowing the ability to customize
+	 * the claims of the Authorization Server's configuration.
+	 * @param authorizationServerMetadataCustomizer the {@code Consumer} providing access
+	 * to the {@link OAuth2AuthorizationServerMetadata.Builder}
+	 * @return the {@link OAuth2AuthorizationServerMetadataEndpointConfigurer} for further
+	 * configuration
 	 */
 	public OAuth2AuthorizationServerMetadataEndpointConfigurer authorizationServerMetadataCustomizer(
 			Consumer<OAuth2AuthorizationServerMetadata.Builder> authorizationServerMetadataCustomizer) {
@@ -61,40 +68,43 @@ public final class OAuth2AuthorizationServerMetadataEndpointConfigurer extends A
 
 	void addDefaultAuthorizationServerMetadataCustomizer(
 			Consumer<OAuth2AuthorizationServerMetadata.Builder> defaultAuthorizationServerMetadataCustomizer) {
-		this.defaultAuthorizationServerMetadataCustomizer =
-				this.defaultAuthorizationServerMetadataCustomizer == null ?
-						defaultAuthorizationServerMetadataCustomizer :
-						this.defaultAuthorizationServerMetadataCustomizer.andThen(defaultAuthorizationServerMetadataCustomizer);
+		this.defaultAuthorizationServerMetadataCustomizer = (this.defaultAuthorizationServerMetadataCustomizer == null)
+				? defaultAuthorizationServerMetadataCustomizer : this.defaultAuthorizationServerMetadataCustomizer
+					.andThen(defaultAuthorizationServerMetadataCustomizer);
 	}
 
 	@Override
 	void init(HttpSecurity httpSecurity) {
-		this.requestMatcher = new AntPathRequestMatcher(
-				"/.well-known/oauth-authorization-server", HttpMethod.GET.name());
+		AuthorizationServerSettings authorizationServerSettings = OAuth2ConfigurerUtils
+			.getAuthorizationServerSettings(httpSecurity);
+		String authorizationServerMetadataEndpointUri = authorizationServerSettings.isMultipleIssuersAllowed()
+				? "/.well-known/oauth-authorization-server/**" : "/.well-known/oauth-authorization-server";
+		this.requestMatcher = new AntPathRequestMatcher(authorizationServerMetadataEndpointUri, HttpMethod.GET.name());
 	}
 
 	@Override
 	void configure(HttpSecurity httpSecurity) {
-		OAuth2AuthorizationServerMetadataEndpointFilter authorizationServerMetadataEndpointFilter =
-				new OAuth2AuthorizationServerMetadataEndpointFilter();
+		OAuth2AuthorizationServerMetadataEndpointFilter authorizationServerMetadataEndpointFilter = new OAuth2AuthorizationServerMetadataEndpointFilter();
 		Consumer<OAuth2AuthorizationServerMetadata.Builder> authorizationServerMetadataCustomizer = getAuthorizationServerMetadataCustomizer();
 		if (authorizationServerMetadataCustomizer != null) {
-			authorizationServerMetadataEndpointFilter.setAuthorizationServerMetadataCustomizer(authorizationServerMetadataCustomizer);
+			authorizationServerMetadataEndpointFilter
+				.setAuthorizationServerMetadataCustomizer(authorizationServerMetadataCustomizer);
 		}
-		httpSecurity.addFilterBefore(postProcess(authorizationServerMetadataEndpointFilter), AbstractPreAuthenticatedProcessingFilter.class);
+		httpSecurity.addFilterBefore(postProcess(authorizationServerMetadataEndpointFilter),
+				AbstractPreAuthenticatedProcessingFilter.class);
 	}
 
 	private Consumer<OAuth2AuthorizationServerMetadata.Builder> getAuthorizationServerMetadataCustomizer() {
 		Consumer<OAuth2AuthorizationServerMetadata.Builder> authorizationServerMetadataCustomizer = null;
-		if (this.defaultAuthorizationServerMetadataCustomizer != null || this.authorizationServerMetadataCustomizer != null) {
+		if (this.defaultAuthorizationServerMetadataCustomizer != null
+				|| this.authorizationServerMetadataCustomizer != null) {
 			if (this.defaultAuthorizationServerMetadataCustomizer != null) {
 				authorizationServerMetadataCustomizer = this.defaultAuthorizationServerMetadataCustomizer;
 			}
 			if (this.authorizationServerMetadataCustomizer != null) {
-				authorizationServerMetadataCustomizer =
-						authorizationServerMetadataCustomizer == null ?
-								this.authorizationServerMetadataCustomizer :
-								authorizationServerMetadataCustomizer.andThen(this.authorizationServerMetadataCustomizer);
+				authorizationServerMetadataCustomizer = (authorizationServerMetadataCustomizer != null)
+						? authorizationServerMetadataCustomizer.andThen(this.authorizationServerMetadataCustomizer)
+						: this.authorizationServerMetadataCustomizer;
 			}
 		}
 		return authorizationServerMetadataCustomizer;

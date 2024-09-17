@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 the original author or authors.
+ * Copyright 2020-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,29 +51,34 @@ import org.springframework.web.util.UriComponentsBuilder;
  * @since 0.1.0
  * @see OidcProviderConfiguration
  * @see AuthorizationServerSettings
- * @see <a target="_blank" href="https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest">4.1. OpenID Provider Configuration Request</a>
+ * @see <a target="_blank" href=
+ * "https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest">4.1.
+ * OpenID Provider Configuration Request</a>
  */
 public final class OidcProviderConfigurationEndpointFilter extends OncePerRequestFilter {
+
 	/**
 	 * The default endpoint {@code URI} for OpenID Provider Configuration requests.
 	 */
 	private static final String DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI = "/.well-known/openid-configuration";
 
-	private final RequestMatcher requestMatcher = new AntPathRequestMatcher(
-			DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI,
-			HttpMethod.GET.name());
-	private final OidcProviderConfigurationHttpMessageConverter providerConfigurationHttpMessageConverter =
-			new OidcProviderConfigurationHttpMessageConverter();
-	private Consumer<OidcProviderConfiguration.Builder> providerConfigurationCustomizer = (providerConfiguration) -> {};
+	private final RequestMatcher requestMatcher = createRequestMatcher();
+
+	private final OidcProviderConfigurationHttpMessageConverter providerConfigurationHttpMessageConverter = new OidcProviderConfigurationHttpMessageConverter();
+
+	private Consumer<OidcProviderConfiguration.Builder> providerConfigurationCustomizer = (providerConfiguration) -> {
+	};
 
 	/**
-	 * Sets the {@code Consumer} providing access to the {@link OidcProviderConfiguration.Builder}
-	 * allowing the ability to customize the claims of the OpenID Provider's configuration.
-	 *
-	 * @param providerConfigurationCustomizer the {@code Consumer} providing access to the {@link OidcProviderConfiguration.Builder}
+	 * Sets the {@code Consumer} providing access to the
+	 * {@link OidcProviderConfiguration.Builder} allowing the ability to customize the
+	 * claims of the OpenID Provider's configuration.
+	 * @param providerConfigurationCustomizer the {@code Consumer} providing access to the
+	 * {@link OidcProviderConfiguration.Builder}
 	 * @since 0.4.0
 	 */
-	public void setProviderConfigurationCustomizer(Consumer<OidcProviderConfiguration.Builder> providerConfigurationCustomizer) {
+	public void setProviderConfigurationCustomizer(
+			Consumer<OidcProviderConfiguration.Builder> providerConfigurationCustomizer) {
 		Assert.notNull(providerConfigurationCustomizer, "providerConfigurationCustomizer cannot be null");
 		this.providerConfigurationCustomizer = providerConfigurationCustomizer;
 	}
@@ -89,36 +94,50 @@ public final class OidcProviderConfigurationEndpointFilter extends OncePerReques
 
 		AuthorizationServerContext authorizationServerContext = AuthorizationServerContextHolder.getContext();
 		String issuer = authorizationServerContext.getIssuer();
-		AuthorizationServerSettings authorizationServerSettings = authorizationServerContext.getAuthorizationServerSettings();
+		AuthorizationServerSettings authorizationServerSettings = authorizationServerContext
+			.getAuthorizationServerSettings();
 
 		OidcProviderConfiguration.Builder providerConfiguration = OidcProviderConfiguration.builder()
-				.issuer(issuer)
-				.authorizationEndpoint(asUrl(issuer, authorizationServerSettings.getAuthorizationEndpoint()))
-				.deviceAuthorizationEndpoint(asUrl(issuer, authorizationServerSettings.getDeviceAuthorizationEndpoint()))
-				.tokenEndpoint(asUrl(issuer, authorizationServerSettings.getTokenEndpoint()))
-				.tokenEndpointAuthenticationMethods(clientAuthenticationMethods())
-				.jwkSetUrl(asUrl(issuer, authorizationServerSettings.getJwkSetEndpoint()))
-				.userInfoEndpoint(asUrl(issuer, authorizationServerSettings.getOidcUserInfoEndpoint()))
-				.endSessionEndpoint(asUrl(issuer, authorizationServerSettings.getOidcLogoutEndpoint()))
-				.responseType(OAuth2AuthorizationResponseType.CODE.getValue())
-				.grantType(AuthorizationGrantType.AUTHORIZATION_CODE.getValue())
-				.grantType(AuthorizationGrantType.CLIENT_CREDENTIALS.getValue())
-				.grantType(AuthorizationGrantType.REFRESH_TOKEN.getValue())
-				.grantType(AuthorizationGrantType.DEVICE_CODE.getValue())
-				.tokenRevocationEndpoint(asUrl(issuer, authorizationServerSettings.getTokenRevocationEndpoint()))
-				.tokenRevocationEndpointAuthenticationMethods(clientAuthenticationMethods())
-				.tokenIntrospectionEndpoint(asUrl(issuer, authorizationServerSettings.getTokenIntrospectionEndpoint()))
-				.tokenIntrospectionEndpointAuthenticationMethods(clientAuthenticationMethods())
-				.codeChallengeMethod("S256")
-				.subjectType("public")
-				.idTokenSigningAlgorithm(SignatureAlgorithm.RS256.getName())
-				.scope(OidcScopes.OPENID);
+			.issuer(issuer)
+			.authorizationEndpoint(asUrl(issuer, authorizationServerSettings.getAuthorizationEndpoint()))
+			.deviceAuthorizationEndpoint(asUrl(issuer, authorizationServerSettings.getDeviceAuthorizationEndpoint()))
+			.tokenEndpoint(asUrl(issuer, authorizationServerSettings.getTokenEndpoint()))
+			.tokenEndpointAuthenticationMethods(clientAuthenticationMethods())
+			.jwkSetUrl(asUrl(issuer, authorizationServerSettings.getJwkSetEndpoint()))
+			.userInfoEndpoint(asUrl(issuer, authorizationServerSettings.getOidcUserInfoEndpoint()))
+			.endSessionEndpoint(asUrl(issuer, authorizationServerSettings.getOidcLogoutEndpoint()))
+			.responseType(OAuth2AuthorizationResponseType.CODE.getValue())
+			.grantType(AuthorizationGrantType.AUTHORIZATION_CODE.getValue())
+			.grantType(AuthorizationGrantType.CLIENT_CREDENTIALS.getValue())
+			.grantType(AuthorizationGrantType.REFRESH_TOKEN.getValue())
+			.grantType(AuthorizationGrantType.DEVICE_CODE.getValue())
+			.grantType(AuthorizationGrantType.TOKEN_EXCHANGE.getValue())
+			.tokenRevocationEndpoint(asUrl(issuer, authorizationServerSettings.getTokenRevocationEndpoint()))
+			.tokenRevocationEndpointAuthenticationMethods(clientAuthenticationMethods())
+			.tokenIntrospectionEndpoint(asUrl(issuer, authorizationServerSettings.getTokenIntrospectionEndpoint()))
+			.tokenIntrospectionEndpointAuthenticationMethods(clientAuthenticationMethods())
+			.codeChallengeMethod("S256")
+			.tlsClientCertificateBoundAccessTokens(true)
+			.subjectType("public")
+			.idTokenSigningAlgorithm(SignatureAlgorithm.RS256.getName())
+			.scope(OidcScopes.OPENID);
 
 		this.providerConfigurationCustomizer.accept(providerConfiguration);
 
 		ServletServerHttpResponse httpResponse = new ServletServerHttpResponse(response);
-		this.providerConfigurationHttpMessageConverter.write(
-				providerConfiguration.build(), MediaType.APPLICATION_JSON, httpResponse);
+		this.providerConfigurationHttpMessageConverter.write(providerConfiguration.build(), MediaType.APPLICATION_JSON,
+				httpResponse);
+	}
+
+	private static RequestMatcher createRequestMatcher() {
+		final RequestMatcher defaultRequestMatcher = new AntPathRequestMatcher(
+				DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI, HttpMethod.GET.name());
+		final RequestMatcher multipleIssuersRequestMatcher = new AntPathRequestMatcher(
+				"/**" + DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI, HttpMethod.GET.name());
+		return (request) -> AuthorizationServerContextHolder.getContext()
+			.getAuthorizationServerSettings()
+			.isMultipleIssuersAllowed() ? multipleIssuersRequestMatcher.matches(request)
+					: defaultRequestMatcher.matches(request);
 	}
 
 	private static Consumer<List<String>> clientAuthenticationMethods() {
@@ -127,6 +146,8 @@ public final class OidcProviderConfigurationEndpointFilter extends OncePerReques
 			authenticationMethods.add(ClientAuthenticationMethod.CLIENT_SECRET_POST.getValue());
 			authenticationMethods.add(ClientAuthenticationMethod.CLIENT_SECRET_JWT.getValue());
 			authenticationMethods.add(ClientAuthenticationMethod.PRIVATE_KEY_JWT.getValue());
+			authenticationMethods.add(ClientAuthenticationMethod.TLS_CLIENT_AUTH.getValue());
+			authenticationMethods.add(ClientAuthenticationMethod.SELF_SIGNED_TLS_CLIENT_AUTH.getValue());
 		};
 	}
 

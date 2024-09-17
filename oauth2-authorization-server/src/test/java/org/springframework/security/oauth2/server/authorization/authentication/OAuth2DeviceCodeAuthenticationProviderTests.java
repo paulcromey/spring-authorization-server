@@ -55,15 +55,12 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.oauth2.server.authorization.authentication.OAuth2DeviceCodeAuthenticationProvider.AUTHORIZATION_PENDING;
-import static org.springframework.security.oauth2.server.authorization.authentication.OAuth2DeviceCodeAuthenticationProvider.DEVICE_CODE_TOKEN_TYPE;
-import static org.springframework.security.oauth2.server.authorization.authentication.OAuth2DeviceCodeAuthenticationProvider.EXPIRED_TOKEN;
 
 /**
  * Tests for {@link OAuth2DeviceCodeAuthenticationProvider}.
@@ -71,13 +68,19 @@ import static org.springframework.security.oauth2.server.authorization.authentic
  * @author Steve Riesenberg
  */
 public class OAuth2DeviceCodeAuthenticationProviderTests {
+
 	private static final String DEVICE_CODE = "EfYu_0jEL";
+
 	private static final String USER_CODE = "BCDF-GHJK";
+
 	private static final String ACCESS_TOKEN = "abc123";
+
 	private static final String REFRESH_TOKEN = "xyz456";
 
 	private OAuth2AuthorizationService authorizationService;
+
 	private OAuth2TokenGenerator<OAuth2Token> tokenGenerator;
+
 	private OAuth2DeviceCodeAuthenticationProvider authenticationProvider;
 
 	@BeforeEach
@@ -120,8 +123,8 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 
 	@Test
 	public void authenticateWhenClientNotAuthenticatedThenThrowOAuth2AuthenticationException() {
-		OAuth2ClientAuthenticationToken clientPrincipal =
-				new OAuth2ClientAuthenticationToken("client-1", ClientAuthenticationMethod.CLIENT_SECRET_BASIC, null, null);
+		OAuth2ClientAuthenticationToken clientPrincipal = new OAuth2ClientAuthenticationToken("client-1",
+				ClientAuthenticationMethod.CLIENT_SECRET_BASIC, null, null);
 		Authentication authentication = new OAuth2DeviceCodeAuthenticationToken(DEVICE_CODE, clientPrincipal, null);
 		// @formatter:off
 		assertThatExceptionOfType(OAuth2AuthenticationException.class)
@@ -136,7 +139,7 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 	public void authenticateWhenAuthorizationNotFoundThenThrowOAuth2AuthenticationException() {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		Authentication authentication = createAuthentication(registeredClient);
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(null);
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(null);
 		// @formatter:off
 		assertThatExceptionOfType(OAuth2AuthenticationException.class)
 				.isThrownBy(() -> this.authenticationProvider.authenticate(authentication))
@@ -145,7 +148,8 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 				.isEqualTo(OAuth2ErrorCodes.INVALID_GRANT);
 		// @formatter:on
 
-		verify(this.authorizationService).findByToken(DEVICE_CODE, DEVICE_CODE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(DEVICE_CODE,
+				OAuth2DeviceCodeAuthenticationProvider.DEVICE_CODE_TOKEN_TYPE);
 		verifyNoMoreInteractions(this.authorizationService);
 		verifyNoInteractions(this.tokenGenerator);
 	}
@@ -156,8 +160,9 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 		RegisteredClient registeredClient2 = TestRegisteredClients.registeredClient2().build();
 		Authentication authentication = createAuthentication(registeredClient);
 		OAuth2Authorization authorization = TestOAuth2Authorizations.authorization(registeredClient2)
-				.token(createDeviceCode()).build();
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
+			.token(createDeviceCode())
+			.build();
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
 		// @formatter:off
 		assertThatExceptionOfType(OAuth2AuthenticationException.class)
 				.isThrownBy(() -> this.authenticationProvider.authenticate(authentication))
@@ -167,7 +172,8 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 		// @formatter:on
 
 		ArgumentCaptor<OAuth2Authorization> authorizationCaptor = ArgumentCaptor.forClass(OAuth2Authorization.class);
-		verify(this.authorizationService).findByToken(DEVICE_CODE, DEVICE_CODE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(DEVICE_CODE,
+				OAuth2DeviceCodeAuthenticationProvider.DEVICE_CODE_TOKEN_TYPE);
 		verify(this.authorizationService).save(authorizationCaptor.capture());
 		verifyNoMoreInteractions(this.authorizationService);
 		verifyNoInteractions(this.tokenGenerator);
@@ -185,17 +191,19 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		Authentication authentication = createAuthentication(registeredClient);
 		OAuth2Authorization authorization = TestOAuth2Authorizations.authorization(registeredClient)
-				.token(createUserCode()).build();
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
+			.token(createUserCode())
+			.build();
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
 		// @formatter:off
 		assertThatExceptionOfType(OAuth2AuthenticationException.class)
 				.isThrownBy(() -> this.authenticationProvider.authenticate(authentication))
 				.extracting(OAuth2AuthenticationException::getError)
 				.extracting(OAuth2Error::getErrorCode)
-				.isEqualTo(AUTHORIZATION_PENDING);
+				.isEqualTo(OAuth2DeviceCodeAuthenticationProvider.AUTHORIZATION_PENDING);
 		// @formatter:on
 
-		verify(this.authorizationService).findByToken(DEVICE_CODE, DEVICE_CODE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(DEVICE_CODE,
+				OAuth2DeviceCodeAuthenticationProvider.DEVICE_CODE_TOKEN_TYPE);
 		verifyNoMoreInteractions(this.authorizationService);
 		verifyNoInteractions(this.tokenGenerator);
 	}
@@ -205,8 +213,10 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		Authentication authentication = createAuthentication(registeredClient);
 		OAuth2Authorization authorization = TestOAuth2Authorizations.authorization(registeredClient)
-				.token(createDeviceCode(), withInvalidated()).token(createUserCode(), withInvalidated()).build();
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
+			.token(createDeviceCode(), withInvalidated())
+			.token(createUserCode(), withInvalidated())
+			.build();
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
 		// @formatter:off
 		assertThatExceptionOfType(OAuth2AuthenticationException.class)
 				.isThrownBy(() -> this.authenticationProvider.authenticate(authentication))
@@ -215,7 +225,8 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 				.isEqualTo(OAuth2ErrorCodes.ACCESS_DENIED);
 		// @formatter:on
 
-		verify(this.authorizationService).findByToken(DEVICE_CODE, DEVICE_CODE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(DEVICE_CODE,
+				OAuth2DeviceCodeAuthenticationProvider.DEVICE_CODE_TOKEN_TYPE);
 		verifyNoMoreInteractions(this.authorizationService);
 		verifyNoInteractions(this.tokenGenerator);
 	}
@@ -225,18 +236,21 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		Authentication authentication = createAuthentication(registeredClient);
 		OAuth2Authorization authorization = TestOAuth2Authorizations.authorization(registeredClient)
-				.token(createExpiredDeviceCode()).token(createUserCode(), withInvalidated()).build();
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
+			.token(createExpiredDeviceCode())
+			.token(createUserCode(), withInvalidated())
+			.build();
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
 		// @formatter:off
 		assertThatExceptionOfType(OAuth2AuthenticationException.class)
 				.isThrownBy(() -> this.authenticationProvider.authenticate(authentication))
 				.extracting(OAuth2AuthenticationException::getError)
 				.extracting(OAuth2Error::getErrorCode)
-				.isEqualTo(EXPIRED_TOKEN);
+				.isEqualTo(OAuth2DeviceCodeAuthenticationProvider.EXPIRED_TOKEN);
 		// @formatter:on
 
 		ArgumentCaptor<OAuth2Authorization> authorizationCaptor = ArgumentCaptor.forClass(OAuth2Authorization.class);
-		verify(this.authorizationService).findByToken(DEVICE_CODE, DEVICE_CODE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(DEVICE_CODE,
+				OAuth2DeviceCodeAuthenticationProvider.DEVICE_CODE_TOKEN_TYPE);
 		verify(this.authorizationService).save(authorizationCaptor.capture());
 		verifyNoMoreInteractions(this.authorizationService);
 		verifyNoInteractions(this.tokenGenerator);
@@ -260,8 +274,8 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 				.attribute(Principal.class.getName(), authentication.getPrincipal())
 				.build();
 		// @formatter:on
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
-		when(this.tokenGenerator.generate(any(OAuth2TokenContext.class))).thenReturn(null);
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
+		given(this.tokenGenerator.generate(any(OAuth2TokenContext.class))).willReturn(null);
 		// @formatter:off
 		assertThatExceptionOfType(OAuth2AuthenticationException.class)
 				.isThrownBy(() -> this.authenticationProvider.authenticate(authentication))
@@ -271,7 +285,8 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 				.isEqualTo(OAuth2ErrorCodes.SERVER_ERROR);
 		// @formatter:on
 
-		verify(this.authorizationService).findByToken(DEVICE_CODE, DEVICE_CODE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(DEVICE_CODE,
+				OAuth2DeviceCodeAuthenticationProvider.DEVICE_CODE_TOKEN_TYPE);
 		verify(this.tokenGenerator).generate(any(OAuth2TokenContext.class));
 		verifyNoMoreInteractions(this.authorizationService, this.tokenGenerator);
 	}
@@ -287,8 +302,8 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 				.attribute(Principal.class.getName(), authentication.getPrincipal())
 				.build();
 		// @formatter:on
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
-		when(this.tokenGenerator.generate(any(OAuth2TokenContext.class))).thenReturn(createAccessToken(),
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
+		given(this.tokenGenerator.generate(any(OAuth2TokenContext.class))).willReturn(createAccessToken(),
 				(OAuth2RefreshToken) null);
 		// @formatter:off
 		assertThatExceptionOfType(OAuth2AuthenticationException.class)
@@ -299,7 +314,8 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 				.isEqualTo(OAuth2ErrorCodes.SERVER_ERROR);
 		// @formatter:on
 
-		verify(this.authorizationService).findByToken(DEVICE_CODE, DEVICE_CODE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(DEVICE_CODE,
+				OAuth2DeviceCodeAuthenticationProvider.DEVICE_CODE_TOKEN_TYPE);
 		verify(this.tokenGenerator, times(2)).generate(any(OAuth2TokenContext.class));
 		verifyNoMoreInteractions(this.authorizationService, this.tokenGenerator);
 	}
@@ -315,9 +331,9 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 				.attribute(Principal.class.getName(), authentication.getPrincipal())
 				.build();
 		// @formatter:on
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
 		OAuth2AccessToken accessToken = createAccessToken();
-		when(this.tokenGenerator.generate(any(OAuth2TokenContext.class))).thenReturn(accessToken, accessToken);
+		given(this.tokenGenerator.generate(any(OAuth2TokenContext.class))).willReturn(accessToken, accessToken);
 		// @formatter:off
 		assertThatExceptionOfType(OAuth2AuthenticationException.class)
 				.isThrownBy(() -> this.authenticationProvider.authenticate(authentication))
@@ -327,7 +343,8 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 				.isEqualTo(OAuth2ErrorCodes.SERVER_ERROR);
 		// @formatter:on
 
-		verify(this.authorizationService).findByToken(DEVICE_CODE, DEVICE_CODE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(DEVICE_CODE,
+				OAuth2DeviceCodeAuthenticationProvider.DEVICE_CODE_TOKEN_TYPE);
 		verify(this.tokenGenerator, times(2)).generate(any(OAuth2TokenContext.class));
 		verifyNoMoreInteractions(this.authorizationService, this.tokenGenerator);
 	}
@@ -343,12 +360,12 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 				.attribute(Principal.class.getName(), authentication.getPrincipal())
 				.build();
 		// @formatter:on
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
 		OAuth2AccessToken accessToken = createAccessToken();
 		OAuth2RefreshToken refreshToken = createRefreshToken();
-		when(this.tokenGenerator.generate(any(OAuth2TokenContext.class))).thenReturn(accessToken, refreshToken);
-		OAuth2AccessTokenAuthenticationToken authenticationResult =
-				(OAuth2AccessTokenAuthenticationToken) this.authenticationProvider.authenticate(authentication);
+		given(this.tokenGenerator.generate(any(OAuth2TokenContext.class))).willReturn(accessToken, refreshToken);
+		OAuth2AccessTokenAuthenticationToken authenticationResult = (OAuth2AccessTokenAuthenticationToken) this.authenticationProvider
+			.authenticate(authentication);
 		assertThat(authenticationResult.getRegisteredClient()).isEqualTo(registeredClient);
 		assertThat(authenticationResult.getPrincipal()).isEqualTo(authentication.getPrincipal());
 		assertThat(authenticationResult.getAccessToken()).isEqualTo(accessToken);
@@ -356,7 +373,8 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 
 		ArgumentCaptor<OAuth2Authorization> authorizationCaptor = ArgumentCaptor.forClass(OAuth2Authorization.class);
 		ArgumentCaptor<OAuth2TokenContext> tokenContextCaptor = ArgumentCaptor.forClass(OAuth2TokenContext.class);
-		verify(this.authorizationService).findByToken(DEVICE_CODE, DEVICE_CODE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(DEVICE_CODE,
+				OAuth2DeviceCodeAuthenticationProvider.DEVICE_CODE_TOKEN_TYPE);
 		verify(this.authorizationService).save(authorizationCaptor.capture());
 		verify(this.tokenGenerator, times(2)).generate(tokenContextCaptor.capture());
 		verifyNoMoreInteractions(this.authorizationService, this.tokenGenerator);
@@ -413,7 +431,8 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 
 	private static OAuth2AccessToken createAccessToken() {
 		Instant issuedAt = Instant.now();
-		return new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, ACCESS_TOKEN, issuedAt, issuedAt.plus(30, ChronoUnit.MINUTES));
+		return new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, ACCESS_TOKEN, issuedAt,
+				issuedAt.plus(30, ChronoUnit.MINUTES));
 	}
 
 	private static OAuth2RefreshToken createRefreshToken() {
@@ -428,4 +447,5 @@ public class OAuth2DeviceCodeAuthenticationProviderTests {
 	public static Function<OAuth2Authorization.Token<? extends OAuth2Token>, Boolean> isInvalidated() {
 		return (token) -> token.getMetadata(OAuth2Authorization.Token.INVALIDATED_METADATA_NAME);
 	}
+
 }

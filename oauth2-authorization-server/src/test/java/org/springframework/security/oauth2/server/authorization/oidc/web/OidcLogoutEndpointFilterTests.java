@@ -20,7 +20,6 @@ import java.util.function.Consumer;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,10 +50,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 /**
  * Tests for {@link OidcLogoutEndpointFilter}.
@@ -62,9 +61,13 @@ import static org.mockito.Mockito.when;
  * @author Joe Grandja
  */
 public class OidcLogoutEndpointFilterTests {
+
 	private static final String DEFAULT_OIDC_LOGOUT_ENDPOINT_URI = "/connect/logout";
+
 	private AuthenticationManager authenticationManager;
+
 	private OidcLogoutEndpointFilter filter;
+
 	private TestingAuthenticationToken principal;
 
 	@BeforeEach
@@ -85,37 +88,36 @@ public class OidcLogoutEndpointFilterTests {
 
 	@Test
 	public void constructorWhenAuthenticationManagerNullThenThrowIllegalArgumentException() {
-		assertThatThrownBy(() -> new OidcLogoutEndpointFilter(null))
-				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessage("authenticationManager cannot be null");
+		assertThatThrownBy(() -> new OidcLogoutEndpointFilter(null)).isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("authenticationManager cannot be null");
 	}
 
 	@Test
 	public void constructorWhenLogoutEndpointUriNullThenThrowIllegalArgumentException() {
 		assertThatThrownBy(() -> new OidcLogoutEndpointFilter(this.authenticationManager, null))
-				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessage("logoutEndpointUri cannot be empty");
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("logoutEndpointUri cannot be empty");
 	}
 
 	@Test
 	public void setAuthenticationConverterWhenNullThenThrowIllegalArgumentException() {
 		assertThatThrownBy(() -> this.filter.setAuthenticationConverter(null))
-				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessage("authenticationConverter cannot be null");
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("authenticationConverter cannot be null");
 	}
 
 	@Test
 	public void setAuthenticationSuccessHandlerWhenNullThenThrowIllegalArgumentException() {
 		assertThatThrownBy(() -> this.filter.setAuthenticationSuccessHandler(null))
-				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessage("authenticationSuccessHandler cannot be null");
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("authenticationSuccessHandler cannot be null");
 	}
 
 	@Test
 	public void setAuthenticationFailureHandlerWhenNullThenThrowIllegalArgumentException() {
 		assertThatThrownBy(() -> this.filter.setAuthenticationFailureHandler(null))
-				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessage("authenticationFailureHandler cannot be null");
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("authenticationFailureHandler cannot be null");
 	}
 
 	@Test
@@ -134,50 +136,43 @@ public class OidcLogoutEndpointFilterTests {
 	@Test
 	public void doFilterWhenLogoutRequestMissingIdTokenHintThenInvalidRequestError() throws Exception {
 		doFilterWhenRequestInvalidParameterThenError(
-				createLogoutRequest(TestRegisteredClients.registeredClient().build()),
-				"id_token_hint",
-				OAuth2ErrorCodes.INVALID_REQUEST,
-				request -> request.removeParameter("id_token_hint"));
+				createLogoutRequest(TestRegisteredClients.registeredClient().build()), "id_token_hint",
+				OAuth2ErrorCodes.INVALID_REQUEST, (request) -> request.removeParameter("id_token_hint"));
 	}
 
 	@Test
 	public void doFilterWhenLogoutRequestMultipleIdTokenHintThenInvalidRequestError() throws Exception {
 		doFilterWhenRequestInvalidParameterThenError(
-				createLogoutRequest(TestRegisteredClients.registeredClient().build()),
-				"id_token_hint",
-				OAuth2ErrorCodes.INVALID_REQUEST,
-				request -> request.addParameter("id_token_hint", "id-token-2"));
+				createLogoutRequest(TestRegisteredClients.registeredClient().build()), "id_token_hint",
+				OAuth2ErrorCodes.INVALID_REQUEST, (request) -> request.addParameter("id_token_hint", "id-token-2"));
 	}
 
 	@Test
 	public void doFilterWhenLogoutRequestMultipleClientIdThenInvalidRequestError() throws Exception {
 		doFilterWhenRequestInvalidParameterThenError(
-				createLogoutRequest(TestRegisteredClients.registeredClient().build()),
-				OAuth2ParameterNames.CLIENT_ID,
+				createLogoutRequest(TestRegisteredClients.registeredClient().build()), OAuth2ParameterNames.CLIENT_ID,
 				OAuth2ErrorCodes.INVALID_REQUEST,
-				request -> request.addParameter(OAuth2ParameterNames.CLIENT_ID, "client-2"));
+				(request) -> request.addParameter(OAuth2ParameterNames.CLIENT_ID, "client-2"));
 	}
 
 	@Test
 	public void doFilterWhenLogoutRequestMultiplePostLogoutRedirectUriThenInvalidRequestError() throws Exception {
 		doFilterWhenRequestInvalidParameterThenError(
-				createLogoutRequest(TestRegisteredClients.registeredClient().build()),
-				"post_logout_redirect_uri",
+				createLogoutRequest(TestRegisteredClients.registeredClient().build()), "post_logout_redirect_uri",
 				OAuth2ErrorCodes.INVALID_REQUEST,
-				request -> request.addParameter("post_logout_redirect_uri", "https://example.com/callback-4"));
+				(request) -> request.addParameter("post_logout_redirect_uri", "https://example.com/callback-4"));
 	}
 
 	@Test
 	public void doFilterWhenLogoutRequestMultipleStateThenInvalidRequestError() throws Exception {
 		doFilterWhenRequestInvalidParameterThenError(
-				createLogoutRequest(TestRegisteredClients.registeredClient().build()),
-				OAuth2ParameterNames.STATE,
+				createLogoutRequest(TestRegisteredClients.registeredClient().build()), OAuth2ParameterNames.STATE,
 				OAuth2ErrorCodes.INVALID_REQUEST,
-				request -> request.addParameter(OAuth2ParameterNames.STATE, "state-2"));
+				(request) -> request.addParameter(OAuth2ParameterNames.STATE, "state-2"));
 	}
 
-	private void doFilterWhenRequestInvalidParameterThenError(MockHttpServletRequest request,
-			String parameterName, String errorCode, Consumer<MockHttpServletRequest> requestConsumer) throws Exception {
+	private void doFilterWhenRequestInvalidParameterThenError(MockHttpServletRequest request, String parameterName,
+			String errorCode, Consumer<MockHttpServletRequest> requestConsumer) throws Exception {
 
 		requestConsumer.accept(request);
 		MockHttpServletResponse response = new MockHttpServletResponse();
@@ -188,14 +183,14 @@ public class OidcLogoutEndpointFilterTests {
 		verifyNoInteractions(filterChain);
 
 		assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
-		assertThat(response.getErrorMessage()).isEqualTo("[" + errorCode + "] OpenID Connect 1.0 Logout Request Parameter: " + parameterName);
+		assertThat(response.getErrorMessage())
+			.isEqualTo("[" + errorCode + "] OpenID Connect 1.0 Logout Request Parameter: " + parameterName);
 	}
 
 	@Test
 	public void doFilterWhenLogoutRequestAuthenticationExceptionThenErrorResponse() throws Exception {
 		OAuth2Error error = new OAuth2Error("errorCode", "errorDescription", "errorUri");
-		when(this.authenticationManager.authenticate(any()))
-				.thenThrow(new OAuth2AuthenticationException(error));
+		given(this.authenticationManager.authenticate(any())).willThrow(new OAuth2AuthenticationException(error));
 
 		MockHttpServletRequest request = createLogoutRequest(TestRegisteredClients.registeredClient().build());
 		MockHttpServletResponse response = new MockHttpServletResponse();
@@ -213,15 +208,14 @@ public class OidcLogoutEndpointFilterTests {
 
 	@Test
 	public void doFilterWhenCustomAuthenticationConverterThenUsed() throws Exception {
-		OidcLogoutAuthenticationToken authentication = new OidcLogoutAuthenticationToken(
-				"id-token", this.principal, null, null, null, null);
+		OidcLogoutAuthenticationToken authentication = new OidcLogoutAuthenticationToken("id-token", this.principal,
+				null, null, null, null);
 
 		AuthenticationConverter authenticationConverter = mock(AuthenticationConverter.class);
-		when(authenticationConverter.convert(any())).thenReturn(authentication);
+		given(authenticationConverter.convert(any())).willReturn((authentication));
 		this.filter.setAuthenticationConverter(authenticationConverter);
 
-		when(this.authenticationManager.authenticate(any()))
-				.thenReturn(authentication);
+		given(this.authenticationManager.authenticate(any())).willReturn((authentication));
 
 		MockHttpServletRequest request = createLogoutRequest(TestRegisteredClients.registeredClient().build());
 		MockHttpServletResponse response = new MockHttpServletResponse();
@@ -236,14 +230,13 @@ public class OidcLogoutEndpointFilterTests {
 
 	@Test
 	public void doFilterWhenCustomAuthenticationSuccessHandlerThenUsed() throws Exception {
-		OidcLogoutAuthenticationToken authentication = new OidcLogoutAuthenticationToken(
-				"id-token", this.principal, null, null, null, null);
+		OidcLogoutAuthenticationToken authentication = new OidcLogoutAuthenticationToken("id-token", this.principal,
+				null, null, null, null);
 
 		AuthenticationSuccessHandler authenticationSuccessHandler = mock(AuthenticationSuccessHandler.class);
 		this.filter.setAuthenticationSuccessHandler(authenticationSuccessHandler);
 
-		when(this.authenticationManager.authenticate(any()))
-				.thenReturn(authentication);
+		given(this.authenticationManager.authenticate(any())).willReturn((authentication));
 
 		MockHttpServletRequest request = createLogoutRequest(TestRegisteredClients.registeredClient().build());
 		MockHttpServletResponse response = new MockHttpServletResponse();
@@ -261,8 +254,8 @@ public class OidcLogoutEndpointFilterTests {
 		AuthenticationFailureHandler authenticationFailureHandler = mock(AuthenticationFailureHandler.class);
 		this.filter.setAuthenticationFailureHandler(authenticationFailureHandler);
 
-		when(this.authenticationManager.authenticate(any()))
-				.thenThrow(new AuthenticationServiceException("AuthenticationServiceException"));
+		given(this.authenticationManager.authenticate(any()))
+			.willThrow(new AuthenticationServiceException("AuthenticationServiceException"));
 
 		MockHttpServletRequest request = createLogoutRequest(TestRegisteredClients.registeredClient().build());
 		MockHttpServletResponse response = new MockHttpServletResponse();
@@ -270,18 +263,19 @@ public class OidcLogoutEndpointFilterTests {
 
 		this.filter.doFilter(request, response, filterChain);
 
-		ArgumentCaptor<AuthenticationException> authenticationExceptionCaptor = ArgumentCaptor.forClass(AuthenticationException.class);
+		ArgumentCaptor<AuthenticationException> authenticationExceptionCaptor = ArgumentCaptor
+			.forClass(AuthenticationException.class);
 		verify(this.authenticationManager).authenticate(any());
-		verify(authenticationFailureHandler).onAuthenticationFailure(any(), any(), authenticationExceptionCaptor.capture());
+		verify(authenticationFailureHandler).onAuthenticationFailure(any(), any(),
+				authenticationExceptionCaptor.capture());
 		verifyNoInteractions(filterChain);
 
-		assertThat(authenticationExceptionCaptor.getValue())
-				.isInstanceOf(OAuth2AuthenticationException.class)
-				.extracting(ex -> ((OAuth2AuthenticationException) ex).getError())
-				.satisfies(error -> {
-					assertThat(error.getErrorCode()).isEqualTo(OAuth2ErrorCodes.INVALID_REQUEST);
-					assertThat(error.getDescription()).contains("AuthenticationServiceException");
-				});
+		assertThat(authenticationExceptionCaptor.getValue()).isInstanceOf(OAuth2AuthenticationException.class)
+			.extracting((ex) -> ((OAuth2AuthenticationException) ex).getError())
+			.satisfies((error) -> {
+				assertThat(error.getErrorCode()).isEqualTo(OAuth2ErrorCodes.INVALID_REQUEST);
+				assertThat(error.getDescription()).contains("AuthenticationServiceException");
+			});
 	}
 
 	@Test
@@ -289,11 +283,10 @@ public class OidcLogoutEndpointFilterTests {
 		MockHttpServletRequest request = createLogoutRequest(TestRegisteredClients.registeredClient().build());
 		MockHttpSession session = (MockHttpSession) request.getSession(true);
 
-		OidcLogoutAuthenticationToken authentication = new OidcLogoutAuthenticationToken(
-				"id-token", this.principal, session.getId(), null, null, null);
+		OidcLogoutAuthenticationToken authentication = new OidcLogoutAuthenticationToken("id-token", this.principal,
+				session.getId(), null, null, null);
 
-		when(this.authenticationManager.authenticate(any()))
-				.thenReturn(authentication);
+		given(this.authenticationManager.authenticate(any())).willReturn((authentication));
 
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		FilterChain filterChain = mock(FilterChain.class);
@@ -310,20 +303,19 @@ public class OidcLogoutEndpointFilterTests {
 	}
 
 	@Test
-	public void doFilterWhenLogoutRequestAuthenticatedWithPostLogoutRedirectUriThenPostLogoutRedirect() throws Exception {
+	public void doFilterWhenLogoutRequestAuthenticatedWithPostLogoutRedirectUriThenPostLogoutRedirect()
+			throws Exception {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		MockHttpServletRequest request = createLogoutRequest(registeredClient);
 		MockHttpSession session = (MockHttpSession) request.getSession(true);
 
 		String postLogoutRedirectUri = registeredClient.getPostLogoutRedirectUris().iterator().next();
 		String state = "state-1";
-		OidcLogoutAuthenticationToken authentication = new OidcLogoutAuthenticationToken(
-				"id-token", this.principal, session.getId(),
-				registeredClient.getClientId(), postLogoutRedirectUri, state);
+		OidcLogoutAuthenticationToken authentication = new OidcLogoutAuthenticationToken("id-token", this.principal,
+				session.getId(), registeredClient.getClientId(), postLogoutRedirectUri, state);
 		authentication.setAuthenticated(true);
 
-		when(this.authenticationManager.authenticate(any()))
-				.thenReturn(authentication);
+		given(this.authenticationManager.authenticate(any())).willReturn((authentication));
 
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		FilterChain filterChain = mock(FilterChain.class);
@@ -346,7 +338,8 @@ public class OidcLogoutEndpointFilterTests {
 
 		request.addParameter("id_token_hint", "id-token");
 		request.addParameter(OAuth2ParameterNames.CLIENT_ID, registeredClient.getClientId());
-		request.addParameter("post_logout_redirect_uri", registeredClient.getPostLogoutRedirectUris().iterator().next());
+		request.addParameter("post_logout_redirect_uri",
+				registeredClient.getPostLogoutRedirectUris().iterator().next());
 		request.addParameter(OAuth2ParameterNames.STATE, "state");
 
 		return request;

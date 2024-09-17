@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 the original author or authors.
+ * Copyright 2020-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,11 @@ package org.springframework.security.oauth2.server.authorization.web;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Map;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,15 +58,13 @@ import org.springframework.security.web.authentication.AuthenticationFailureHand
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.WebAuthenticationDetails;
 
-import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 /**
  * Tests for {@link OAuth2DeviceAuthorizationEndpointFilter}.
@@ -72,21 +72,28 @@ import static org.mockito.Mockito.when;
  * @author Steve Riesenberg
  */
 public class OAuth2DeviceAuthorizationEndpointFilterTests {
-	private static final String ISSUER_URI = "https://provider.com";
+
+	private static final String ISSUER_URI = "https://provider.com:8090";
+
 	private static final String REMOTE_ADDRESS = "remote-address";
+
 	private static final String AUTHORIZATION_URI = "/oauth2/device_authorization";
+
 	private static final String VERIFICATION_URI = "/oauth2/device_verification";
+
 	private static final String CLIENT_ID = "client-1";
+
 	private static final String DEVICE_CODE = "EfYu_0jEL";
+
 	private static final String USER_CODE = "BCDF-GHJK";
 
 	private AuthenticationManager authenticationManager;
+
 	private OAuth2DeviceAuthorizationEndpointFilter filter;
 
-	private final HttpMessageConverter<OAuth2DeviceAuthorizationResponse> deviceAuthorizationHttpResponseConverter =
-			new OAuth2DeviceAuthorizationResponseHttpMessageConverter();
-	private final HttpMessageConverter<OAuth2Error> errorHttpResponseConverter =
-			new OAuth2ErrorHttpMessageConverter();
+	private final HttpMessageConverter<OAuth2DeviceAuthorizationResponse> deviceAuthorizationHttpResponseConverter = new OAuth2DeviceAuthorizationResponseHttpMessageConverter();
+
+	private final HttpMessageConverter<OAuth2Error> errorHttpResponseConverter = new OAuth2ErrorHttpMessageConverter();
 
 	@BeforeEach
 	public void setUp() {
@@ -188,7 +195,7 @@ public class OAuth2DeviceAuthorizationEndpointFilterTests {
 	@Test
 	public void doFilterWhenDeviceAuthorizationRequestThenDeviceAuthorizationResponse() throws Exception {
 		Authentication authenticationResult = createAuthentication();
-		when(this.authenticationManager.authenticate(any(Authentication.class))).thenReturn(authenticationResult);
+		given(this.authenticationManager.authenticate(any(Authentication.class))).willReturn(authenticationResult);
 
 		Authentication clientPrincipal = (Authentication) authenticationResult.getPrincipal();
 		mockSecurityContext(clientPrincipal);
@@ -201,22 +208,22 @@ public class OAuth2DeviceAuthorizationEndpointFilterTests {
 		this.filter.doFilter(request, response, filterChain);
 		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
 
-		ArgumentCaptor<OAuth2DeviceAuthorizationRequestAuthenticationToken> deviceAuthorizationRequestAuthenticationCaptor =
-				ArgumentCaptor.forClass(OAuth2DeviceAuthorizationRequestAuthenticationToken.class);
+		ArgumentCaptor<OAuth2DeviceAuthorizationRequestAuthenticationToken> deviceAuthorizationRequestAuthenticationCaptor = ArgumentCaptor
+			.forClass(OAuth2DeviceAuthorizationRequestAuthenticationToken.class);
 		verify(this.authenticationManager).authenticate(deviceAuthorizationRequestAuthenticationCaptor.capture());
 		verifyNoInteractions(filterChain);
 
-		OAuth2DeviceAuthorizationRequestAuthenticationToken deviceAuthorizationRequestAuthentication =
-				deviceAuthorizationRequestAuthenticationCaptor.getValue();
+		OAuth2DeviceAuthorizationRequestAuthenticationToken deviceAuthorizationRequestAuthentication = deviceAuthorizationRequestAuthenticationCaptor
+			.getValue();
 		assertThat(deviceAuthorizationRequestAuthentication.getAuthorizationUri()).endsWith(AUTHORIZATION_URI);
 		assertThat(deviceAuthorizationRequestAuthentication.getPrincipal()).isEqualTo(clientPrincipal);
 		assertThat(deviceAuthorizationRequestAuthentication.getScopes()).isEmpty();
-		assertThat(deviceAuthorizationRequestAuthentication.getAdditionalParameters())
-				.containsExactly(entry("custom-param-1", "custom-value-1"),
-					entry("custom-param-2", new String[] { "custom-value-1", "custom-value-2" }));
+		assertThat(deviceAuthorizationRequestAuthentication.getAdditionalParameters()).containsExactly(
+				Map.entry("custom-param-1", "custom-value-1"),
+				Map.entry("custom-param-2", new String[] { "custom-value-1", "custom-value-2" }));
 		// @formatter:off
 		assertThat(deviceAuthorizationRequestAuthentication.getDetails())
-				.asInstanceOf(type(WebAuthenticationDetails.class))
+				.asInstanceOf(InstanceOfAssertFactories.type(WebAuthenticationDetails.class))
 				.extracting(WebAuthenticationDetails::getRemoteAddress)
 				.isEqualTo(REMOTE_ADDRESS);
 		// @formatter:on
@@ -225,7 +232,7 @@ public class OAuth2DeviceAuthorizationEndpointFilterTests {
 		String verificationUri = ISSUER_URI + VERIFICATION_URI;
 		assertThat(deviceAuthorizationResponse.getVerificationUri()).isEqualTo(verificationUri);
 		assertThat(deviceAuthorizationResponse.getVerificationUriComplete())
-				.isEqualTo("%s?%s=%s".formatted(verificationUri, OAuth2ParameterNames.USER_CODE, USER_CODE));
+			.isEqualTo("%s?%s=%s".formatted(verificationUri, OAuth2ParameterNames.USER_CODE, USER_CODE));
 		OAuth2DeviceCode deviceCode = deviceAuthorizationResponse.getDeviceCode();
 		assertThat(deviceCode.getTokenValue()).isEqualTo(DEVICE_CODE);
 		assertThat(deviceCode.getExpiresAt()).isAfter(deviceCode.getIssuedAt());
@@ -239,7 +246,7 @@ public class OAuth2DeviceAuthorizationEndpointFilterTests {
 		AuthenticationConverter authenticationConverter = mock(AuthenticationConverter.class);
 		OAuth2AuthenticationException authenticationException = new OAuth2AuthenticationException(
 				new OAuth2Error(OAuth2ErrorCodes.INVALID_REQUEST, "Invalid request", "error-uri"));
-		when(authenticationConverter.convert(any(HttpServletRequest.class))).thenThrow(authenticationException);
+		given(authenticationConverter.convert(any(HttpServletRequest.class))).willThrow(authenticationException);
 		this.filter.setAuthenticationConverter(authenticationConverter);
 
 		MockHttpServletRequest request = createRequest();
@@ -260,7 +267,7 @@ public class OAuth2DeviceAuthorizationEndpointFilterTests {
 	@Test
 	public void doFilterWhenCustomDeviceAuthorizationEndpointUriThenUsed() throws Exception {
 		Authentication authenticationResult = createAuthentication();
-		when(this.authenticationManager.authenticate(any(Authentication.class))).thenReturn(authenticationResult);
+		given(this.authenticationManager.authenticate(any(Authentication.class))).willReturn(authenticationResult);
 
 		Authentication clientPrincipal = (Authentication) authenticationResult.getPrincipal();
 		mockSecurityContext(clientPrincipal);
@@ -281,15 +288,15 @@ public class OAuth2DeviceAuthorizationEndpointFilterTests {
 	@Test
 	public void doFilterWhenAuthenticationConverterSetThenUsed() throws Exception {
 		Authentication authenticationResult = createAuthentication();
-		when(this.authenticationManager.authenticate(any(Authentication.class))).thenReturn(authenticationResult);
+		given(this.authenticationManager.authenticate(any(Authentication.class))).willReturn(authenticationResult);
 
 		Authentication clientPrincipal = (Authentication) authenticationResult.getPrincipal();
 		mockSecurityContext(clientPrincipal);
 
 		AuthenticationConverter authenticationConverter = mock(AuthenticationConverter.class);
-		OAuth2DeviceAuthorizationRequestAuthenticationToken authenticationRequest =
-				new OAuth2DeviceAuthorizationRequestAuthenticationToken(clientPrincipal, AUTHORIZATION_URI, null, null);
-		when(authenticationConverter.convert(any(HttpServletRequest.class))).thenReturn(authenticationRequest);
+		OAuth2DeviceAuthorizationRequestAuthenticationToken authenticationRequest = new OAuth2DeviceAuthorizationRequestAuthenticationToken(
+				clientPrincipal, AUTHORIZATION_URI, null, null);
+		given(authenticationConverter.convert(any(HttpServletRequest.class))).willReturn(authenticationRequest);
 		this.filter.setAuthenticationConverter(authenticationConverter);
 
 		MockHttpServletRequest request = createRequest();
@@ -306,7 +313,7 @@ public class OAuth2DeviceAuthorizationEndpointFilterTests {
 	@Test
 	public void doFilterWhenAuthenticationDetailsSourceSetThenUsed() throws Exception {
 		Authentication authenticationResult = createAuthentication();
-		when(this.authenticationManager.authenticate(any(Authentication.class))).thenReturn(authenticationResult);
+		given(this.authenticationManager.authenticate(any(Authentication.class))).willReturn(authenticationResult);
 
 		Authentication clientPrincipal = (Authentication) authenticationResult.getPrincipal();
 		mockSecurityContext(clientPrincipal);
@@ -316,8 +323,10 @@ public class OAuth2DeviceAuthorizationEndpointFilterTests {
 		FilterChain filterChain = mock(FilterChain.class);
 
 		@SuppressWarnings("unchecked")
-		AuthenticationDetailsSource<HttpServletRequest, WebAuthenticationDetails> authenticationDetailsSource = mock(AuthenticationDetailsSource.class);
-		when(authenticationDetailsSource.buildDetails(any(HttpServletRequest.class))).thenReturn(new WebAuthenticationDetails(request));
+		AuthenticationDetailsSource<HttpServletRequest, WebAuthenticationDetails> authenticationDetailsSource = mock(
+				AuthenticationDetailsSource.class);
+		given(authenticationDetailsSource.buildDetails(any(HttpServletRequest.class)))
+			.willReturn(new WebAuthenticationDetails(request));
 		this.filter.setAuthenticationDetailsSource(authenticationDetailsSource);
 
 		this.filter.doFilter(request, response, filterChain);
@@ -331,7 +340,7 @@ public class OAuth2DeviceAuthorizationEndpointFilterTests {
 	@Test
 	public void doFilterWhenAuthenticationSuccessHandlerSetThenUsed() throws Exception {
 		Authentication authenticationResult = createAuthentication();
-		when(this.authenticationManager.authenticate(any(Authentication.class))).thenReturn(authenticationResult);
+		given(this.authenticationManager.authenticate(any(Authentication.class))).willReturn(authenticationResult);
 
 		Authentication clientPrincipal = (Authentication) authenticationResult.getPrincipal();
 		mockSecurityContext(clientPrincipal);
@@ -352,9 +361,9 @@ public class OAuth2DeviceAuthorizationEndpointFilterTests {
 
 	@Test
 	public void doFilterWhenAuthenticationFailureHandlerSetThenUsed() throws Exception {
-		OAuth2AuthenticationException authenticationException =
-				new OAuth2AuthenticationException(OAuth2ErrorCodes.INVALID_REQUEST);
-		when(this.authenticationManager.authenticate(any(Authentication.class))).thenThrow(authenticationException);
+		OAuth2AuthenticationException authenticationException = new OAuth2AuthenticationException(
+				OAuth2ErrorCodes.INVALID_REQUEST);
+		given(this.authenticationManager.authenticate(any(Authentication.class))).willThrow(authenticationException);
 
 		Authentication clientPrincipal = (Authentication) createAuthentication().getPrincipal();
 		mockSecurityContext(clientPrincipal);
@@ -373,15 +382,17 @@ public class OAuth2DeviceAuthorizationEndpointFilterTests {
 		verifyNoInteractions(filterChain);
 	}
 
-	private OAuth2DeviceAuthorizationResponse readDeviceAuthorizationResponse(MockHttpServletResponse response) throws IOException {
-		MockClientHttpResponse httpResponse = new MockClientHttpResponse(
-				response.getContentAsByteArray(), HttpStatus.valueOf(response.getStatus()));
-		return this.deviceAuthorizationHttpResponseConverter.read(OAuth2DeviceAuthorizationResponse.class, httpResponse);
+	private OAuth2DeviceAuthorizationResponse readDeviceAuthorizationResponse(MockHttpServletResponse response)
+			throws IOException {
+		MockClientHttpResponse httpResponse = new MockClientHttpResponse(response.getContentAsByteArray(),
+				HttpStatus.valueOf(response.getStatus()));
+		return this.deviceAuthorizationHttpResponseConverter.read(OAuth2DeviceAuthorizationResponse.class,
+				httpResponse);
 	}
 
 	private OAuth2Error readError(MockHttpServletResponse response) throws IOException {
-		MockClientHttpResponse httpResponse = new MockClientHttpResponse(
-				response.getContentAsByteArray(), HttpStatus.valueOf(response.getStatus()));
+		MockClientHttpResponse httpResponse = new MockClientHttpResponse(response.getContentAsByteArray(),
+				HttpStatus.valueOf(response.getStatus()));
 		return this.errorHttpResponseConverter.read(OAuth2Error.class, httpResponse);
 	}
 
@@ -404,6 +415,9 @@ public class OAuth2DeviceAuthorizationEndpointFilterTests {
 		request.setRequestURI(AUTHORIZATION_URI);
 		request.setServletPath(AUTHORIZATION_URI);
 		request.setRemoteAddr(REMOTE_ADDRESS);
+		request.setScheme("https");
+		request.setServerName("provider.com");
+		request.setServerPort(8090);
 		return request;
 	}
 
@@ -422,4 +436,5 @@ public class OAuth2DeviceAuthorizationEndpointFilterTests {
 		Instant issuedAt = Instant.now();
 		return new OAuth2UserCode(USER_CODE, issuedAt, issuedAt.plus(30, ChronoUnit.MINUTES));
 	}
+
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 the original author or authors.
+ * Copyright 2020-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,8 +43,6 @@ import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
-import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
-import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
@@ -52,6 +50,7 @@ import org.springframework.security.oauth2.server.authorization.config.annotatio
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
+import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
@@ -133,7 +132,7 @@ public class AuthorizationServerConfig {
 	// @formatter:off
 	@Bean
 	public JdbcRegisteredClientRepository registeredClientRepository(JdbcTemplate jdbcTemplate) {
-		RegisteredClient registeredClient = RegisteredClient.withId(UUID.randomUUID().toString())
+		RegisteredClient messagingClient = RegisteredClient.withId(UUID.randomUUID().toString())
 				.clientId("messaging-client")
 				.clientSecret("{noop}secret")
 				.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
@@ -147,6 +146,7 @@ public class AuthorizationServerConfig {
 				.scope(OidcScopes.PROFILE)
 				.scope("message.read")
 				.scope("message.write")
+				.scope("user.read")
 				.clientSettings(ClientSettings.builder().requireAuthorizationConsent(true).build())
 				.build();
 
@@ -159,10 +159,41 @@ public class AuthorizationServerConfig {
 				.scope("message.write")
 				.build();
 
+		RegisteredClient tokenExchangeClient = RegisteredClient.withId(UUID.randomUUID().toString())
+				.clientId("token-client")
+				.clientSecret("{noop}token")
+				.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+				.authorizationGrantType(new AuthorizationGrantType("urn:ietf:params:oauth:grant-type:token-exchange"))
+				.scope("message.read")
+				.scope("message.write")
+				.build();
+
+		RegisteredClient mtlsDemoClient = RegisteredClient.withId(UUID.randomUUID().toString())
+				.clientId("mtls-demo-client")
+				.clientAuthenticationMethod(ClientAuthenticationMethod.TLS_CLIENT_AUTH)
+				.clientAuthenticationMethod(ClientAuthenticationMethod.SELF_SIGNED_TLS_CLIENT_AUTH)
+				.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+				.scope("message.read")
+				.scope("message.write")
+				.clientSettings(
+						ClientSettings.builder()
+								.x509CertificateSubjectDN("CN=demo-client-sample,OU=Spring Samples,O=Spring,C=US")
+								.jwkSetUrl("http://127.0.0.1:8080/jwks")
+								.build()
+				)
+				.tokenSettings(
+						TokenSettings.builder()
+								.x509CertificateBoundAccessTokens(true)
+								.build()
+				)
+				.build();
+
 		// Save registered client's in db as if in-memory
 		JdbcRegisteredClientRepository registeredClientRepository = new JdbcRegisteredClientRepository(jdbcTemplate);
-		registeredClientRepository.save(registeredClient);
+		registeredClientRepository.save(messagingClient);
 		registeredClientRepository.save(deviceClient);
+		registeredClientRepository.save(tokenExchangeClient);
+		registeredClientRepository.save(mtlsDemoClient);
 
 		return registeredClientRepository;
 	}

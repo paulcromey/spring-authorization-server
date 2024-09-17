@@ -34,15 +34,19 @@ import org.springframework.security.oauth2.server.authorization.settings.TokenSe
 import org.springframework.util.CollectionUtils;
 
 /**
- * A {@link Converter} that converts the provided {@link OidcClientRegistration} to a {@link RegisteredClient}.
+ * A {@link Converter} that converts the provided {@link OidcClientRegistration} to a
+ * {@link RegisteredClient}.
  *
  * @author Joe Grandja
  * @author Dmitriy Dubson
  * @since 1.2.0
  */
-public final class OidcClientRegistrationRegisteredClientConverter implements Converter<OidcClientRegistration, RegisteredClient> {
+public final class OidcClientRegistrationRegisteredClientConverter
+		implements Converter<OidcClientRegistration, RegisteredClient> {
+
 	private static final StringKeyGenerator CLIENT_ID_GENERATOR = new Base64StringKeyGenerator(
 			Base64.getUrlEncoder().withoutPadding(), 32);
+
 	private static final StringKeyGenerator CLIENT_SECRET_GENERATOR = new Base64StringKeyGenerator(
 			Base64.getUrlEncoder().withoutPadding(), 48);
 
@@ -58,31 +62,35 @@ public final class OidcClientRegistrationRegisteredClientConverter implements Co
 			builder
 					.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
 					.clientSecret(CLIENT_SECRET_GENERATOR.generateKey());
-		} else if (ClientAuthenticationMethod.CLIENT_SECRET_JWT.getValue().equals(clientRegistration.getTokenEndpointAuthenticationMethod())) {
+		}
+		else if (ClientAuthenticationMethod.CLIENT_SECRET_JWT.getValue().equals(clientRegistration.getTokenEndpointAuthenticationMethod())) {
 			builder
 					.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_JWT)
 					.clientSecret(CLIENT_SECRET_GENERATOR.generateKey());
-		} else if (ClientAuthenticationMethod.PRIVATE_KEY_JWT.getValue().equals(clientRegistration.getTokenEndpointAuthenticationMethod())) {
+		}
+		else if (ClientAuthenticationMethod.PRIVATE_KEY_JWT.getValue().equals(clientRegistration.getTokenEndpointAuthenticationMethod())) {
 			builder.clientAuthenticationMethod(ClientAuthenticationMethod.PRIVATE_KEY_JWT);
-		} else {
+		}
+		else {
 			builder
 					.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
 					.clientSecret(CLIENT_SECRET_GENERATOR.generateKey());
 		}
 
-		builder.redirectUris(redirectUris ->
+		builder.redirectUris((redirectUris) ->
 				redirectUris.addAll(clientRegistration.getRedirectUris()));
 
 		if (!CollectionUtils.isEmpty(clientRegistration.getPostLogoutRedirectUris())) {
-			builder.postLogoutRedirectUris(postLogoutRedirectUris ->
+			builder.postLogoutRedirectUris((postLogoutRedirectUris) ->
 					postLogoutRedirectUris.addAll(clientRegistration.getPostLogoutRedirectUris()));
 		}
 
 		if (!CollectionUtils.isEmpty(clientRegistration.getGrantTypes())) {
-			builder.authorizationGrantTypes(authorizationGrantTypes ->
-					clientRegistration.getGrantTypes().forEach(grantType ->
+			builder.authorizationGrantTypes((authorizationGrantTypes) ->
+					clientRegistration.getGrantTypes().forEach((grantType) ->
 							authorizationGrantTypes.add(new AuthorizationGrantType(grantType))));
-		} else {
+		}
+		else {
 			builder.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE);
 		}
 		if (CollectionUtils.isEmpty(clientRegistration.getResponseTypes()) ||
@@ -91,7 +99,7 @@ public final class OidcClientRegistrationRegisteredClientConverter implements Co
 		}
 
 		if (!CollectionUtils.isEmpty(clientRegistration.getScopes())) {
-			builder.scopes(scopes ->
+			builder.scopes((scopes) ->
 					scopes.addAll(clientRegistration.getScopes()));
 		}
 
@@ -105,7 +113,8 @@ public final class OidcClientRegistrationRegisteredClientConverter implements Co
 				macAlgorithm = MacAlgorithm.HS256;
 			}
 			clientSettingsBuilder.tokenEndpointAuthenticationSigningAlgorithm(macAlgorithm);
-		} else if (ClientAuthenticationMethod.PRIVATE_KEY_JWT.getValue().equals(clientRegistration.getTokenEndpointAuthenticationMethod())) {
+		}
+		else if (ClientAuthenticationMethod.PRIVATE_KEY_JWT.getValue().equals(clientRegistration.getTokenEndpointAuthenticationMethod())) {
 			SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.from(clientRegistration.getTokenEndpointAuthenticationSigningAlgorithm());
 			if (signatureAlgorithm == null) {
 				signatureAlgorithm = SignatureAlgorithm.RS256;
@@ -125,4 +134,3 @@ public final class OidcClientRegistrationRegisteredClientConverter implements Co
 	}
 
 }
-

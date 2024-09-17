@@ -28,12 +28,14 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
- * A {@link Converter} that converts the provided {@link RegisteredClient} to an {@link OidcClientRegistration}.
+ * A {@link Converter} that converts the provided {@link RegisteredClient} to an
+ * {@link OidcClientRegistration}.
  *
  * @author Joe Grandja
  * @since 1.2.0
  */
-public final class RegisteredClientOidcClientRegistrationConverter implements Converter<RegisteredClient, OidcClientRegistration> {
+public final class RegisteredClientOidcClientRegistrationConverter
+		implements Converter<RegisteredClient, OidcClientRegistration> {
 
 	@Override
 	public OidcClientRegistration convert(RegisteredClient registeredClient) {
@@ -47,16 +49,16 @@ public final class RegisteredClientOidcClientRegistrationConverter implements Co
 			builder.clientSecret(registeredClient.getClientSecret());
 		}
 
-		builder.redirectUris(redirectUris ->
+		builder.redirectUris((redirectUris) ->
 				redirectUris.addAll(registeredClient.getRedirectUris()));
 
 		if (!CollectionUtils.isEmpty(registeredClient.getPostLogoutRedirectUris())) {
-			builder.postLogoutRedirectUris(postLogoutRedirectUris ->
+			builder.postLogoutRedirectUris((postLogoutRedirectUris) ->
 					postLogoutRedirectUris.addAll(registeredClient.getPostLogoutRedirectUris()));
 		}
 
-		builder.grantTypes(grantTypes ->
-				registeredClient.getAuthorizationGrantTypes().forEach(authorizationGrantType ->
+		builder.grantTypes((grantTypes) ->
+				registeredClient.getAuthorizationGrantTypes().forEach((authorizationGrantType) ->
 						grantTypes.add(authorizationGrantType.getValue())));
 
 		if (registeredClient.getAuthorizationGrantTypes().contains(AuthorizationGrantType.AUTHORIZATION_CODE)) {
@@ -64,7 +66,7 @@ public final class RegisteredClientOidcClientRegistrationConverter implements Co
 		}
 
 		if (!CollectionUtils.isEmpty(registeredClient.getScopes())) {
-			builder.scopes(scopes ->
+			builder.scopes((scopes) ->
 					scopes.addAll(registeredClient.getScopes()));
 		}
 

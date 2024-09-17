@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 the original author or authors.
+ * Copyright 2020-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import java.util.Set;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -43,16 +45,25 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
+import org.springframework.lang.Nullable;
 import org.springframework.mock.http.client.MockClientHttpResponse;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.Transient;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AccessTokenResponse;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
@@ -66,6 +77,7 @@ import org.springframework.security.oauth2.server.authorization.OAuth2Authorizat
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.TestOAuth2Authorizations;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientAuthenticationToken;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository.RegisteredClientParametersMapper;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
@@ -77,10 +89,15 @@ import org.springframework.security.oauth2.server.authorization.test.SpringTestC
 import org.springframework.security.oauth2.server.authorization.test.SpringTestContextExtension;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationConverter;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.util.Assert;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.CoreMatchers.containsString;
@@ -97,14 +114,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @ExtendWith(SpringTestContextExtension.class)
 public class OAuth2RefreshTokenGrantTests {
+
 	private static final String DEFAULT_TOKEN_ENDPOINT_URI = "/oauth2/token";
+
 	private static final String DEFAULT_TOKEN_REVOCATION_ENDPOINT_URI = "/oauth2/revoke";
+
 	private static final String AUTHORITIES_CLAIM = "authorities";
+
 	private static EmbeddedDatabase db;
+
 	private static JWKSource<SecurityContext> jwkSource;
+
 	private static NimbusJwtDecoder jwtDecoder;
-	private static HttpMessageConverter<OAuth2AccessTokenResponse> accessTokenHttpResponseConverter =
-			new OAuth2AccessTokenResponseHttpMessageConverter();
+
+	private static HttpMessageConverter<OAuth2AccessTokenResponse> accessTokenHttpResponseConverter = new OAuth2AccessTokenResponseHttpMessageConverter();
 
 	public final SpringTestContext spring = new SpringTestContext();
 
@@ -125,19 +148,19 @@ public class OAuth2RefreshTokenGrantTests {
 		JWKSet jwkSet = new JWKSet(TestJwks.DEFAULT_RSA_JWK);
 		jwkSource = (jwkSelector, securityContext) -> jwkSelector.select(jwkSet);
 		jwtDecoder = NimbusJwtDecoder.withPublicKey(TestKeys.DEFAULT_PUBLIC_KEY).build();
-		db = new EmbeddedDatabaseBuilder()
-				.generateUniqueName(true)
-				.setType(EmbeddedDatabaseType.HSQL)
-				.setScriptEncoding("UTF-8")
-				.addScript("org/springframework/security/oauth2/server/authorization/oauth2-authorization-schema.sql")
-				.addScript("org/springframework/security/oauth2/server/authorization/client/oauth2-registered-client-schema.sql")
-				.build();
+		db = new EmbeddedDatabaseBuilder().generateUniqueName(true)
+			.setType(EmbeddedDatabaseType.HSQL)
+			.setScriptEncoding("UTF-8")
+			.addScript("org/springframework/security/oauth2/server/authorization/oauth2-authorization-schema.sql")
+			.addScript(
+					"org/springframework/security/oauth2/server/authorization/client/oauth2-registered-client-schema.sql")
+			.build();
 	}
 
 	@AfterEach
 	public void tearDown() {
-		jdbcOperations.update("truncate table oauth2_authorization");
-		jdbcOperations.update("truncate table oauth2_registered_client");
+		this.jdbcOperations.update("truncate table oauth2_authorization");
+		this.jdbcOperations.update("truncate table oauth2_registered_client");
 	}
 
 	@AfterAll
@@ -155,25 +178,25 @@ public class OAuth2RefreshTokenGrantTests {
 		OAuth2Authorization authorization = TestOAuth2Authorizations.authorization(registeredClient).build();
 		this.authorizationService.save(authorization);
 
-		MvcResult mvcResult = this.mvc.perform(post(DEFAULT_TOKEN_ENDPOINT_URI)
-				.params(getRefreshTokenRequestParameters(authorization))
-				.header(HttpHeaders.AUTHORIZATION, "Basic " + encodeBasicAuth(
-						registeredClient.getClientId(), registeredClient.getClientSecret())))
-				.andExpect(status().isOk())
-				.andExpect(header().string(HttpHeaders.CACHE_CONTROL, containsString("no-store")))
-				.andExpect(header().string(HttpHeaders.PRAGMA, containsString("no-cache")))
-				.andExpect(jsonPath("$.access_token").isNotEmpty())
-				.andExpect(jsonPath("$.token_type").isNotEmpty())
-				.andExpect(jsonPath("$.expires_in").isNotEmpty())
-				.andExpect(jsonPath("$.refresh_token").isNotEmpty())
-				.andExpect(jsonPath("$.scope").isNotEmpty())
-				.andReturn();
+		MvcResult mvcResult = this.mvc
+			.perform(post(DEFAULT_TOKEN_ENDPOINT_URI).params(getRefreshTokenRequestParameters(authorization))
+				.header(HttpHeaders.AUTHORIZATION,
+						"Basic " + encodeBasicAuth(registeredClient.getClientId(), registeredClient.getClientSecret())))
+			.andExpect(status().isOk())
+			.andExpect(header().string(HttpHeaders.CACHE_CONTROL, containsString("no-store")))
+			.andExpect(header().string(HttpHeaders.PRAGMA, containsString("no-cache")))
+			.andExpect(jsonPath("$.access_token").isNotEmpty())
+			.andExpect(jsonPath("$.token_type").isNotEmpty())
+			.andExpect(jsonPath("$.expires_in").isNotEmpty())
+			.andExpect(jsonPath("$.refresh_token").isNotEmpty())
+			.andExpect(jsonPath("$.scope").isNotEmpty())
+			.andReturn();
 
 		MockHttpServletResponse servletResponse = mvcResult.getResponse();
-		MockClientHttpResponse httpResponse = new MockClientHttpResponse(
-				servletResponse.getContentAsByteArray(), HttpStatus.valueOf(servletResponse.getStatus()));
-		OAuth2AccessTokenResponse accessTokenResponse = accessTokenHttpResponseConverter.read(
-				OAuth2AccessTokenResponse.class, httpResponse);
+		MockClientHttpResponse httpResponse = new MockClientHttpResponse(servletResponse.getContentAsByteArray(),
+				HttpStatus.valueOf(servletResponse.getStatus()));
+		OAuth2AccessTokenResponse accessTokenResponse = accessTokenHttpResponseConverter
+			.read(OAuth2AccessTokenResponse.class, httpResponse);
 
 		// Assert user authorities was propagated as claim in JWT
 		Jwt jwt = jwtDecoder.decode(accessTokenResponse.getAccessToken().getTokenValue());
@@ -200,21 +223,48 @@ public class OAuth2RefreshTokenGrantTests {
 		OAuth2AccessToken token = authorization.getAccessToken().getToken();
 		OAuth2TokenType tokenType = OAuth2TokenType.ACCESS_TOKEN;
 
-		this.mvc.perform(post(DEFAULT_TOKEN_REVOCATION_ENDPOINT_URI)
+		this.mvc
+			.perform(post(DEFAULT_TOKEN_REVOCATION_ENDPOINT_URI)
 				.params(getTokenRevocationRequestParameters(token, tokenType))
-				.header(HttpHeaders.AUTHORIZATION, "Basic " + encodeBasicAuth(
-						registeredClient.getClientId(), registeredClient.getClientSecret())))
-				.andExpect(status().isOk());
+				.header(HttpHeaders.AUTHORIZATION,
+						"Basic " + encodeBasicAuth(registeredClient.getClientId(), registeredClient.getClientSecret())))
+			.andExpect(status().isOk());
 
-		this.mvc.perform(post(DEFAULT_TOKEN_ENDPOINT_URI)
-				.params(getRefreshTokenRequestParameters(authorization))
-				.header(HttpHeaders.AUTHORIZATION, "Basic " + encodeBasicAuth(
-						registeredClient.getClientId(), registeredClient.getClientSecret())))
-				.andExpect(status().isOk());
+		this.mvc
+			.perform(post(DEFAULT_TOKEN_ENDPOINT_URI).params(getRefreshTokenRequestParameters(authorization))
+				.header(HttpHeaders.AUTHORIZATION,
+						"Basic " + encodeBasicAuth(registeredClient.getClientId(), registeredClient.getClientSecret())))
+			.andExpect(status().isOk());
 
 		OAuth2Authorization updatedAuthorization = this.authorizationService.findById(authorization.getId());
 		OAuth2Authorization.Token<OAuth2AccessToken> accessToken = updatedAuthorization.getAccessToken();
 		assertThat(accessToken.isActive()).isTrue();
+	}
+
+	// gh-1430
+	@Test
+	public void requestWhenRefreshTokenRequestWithPublicClientThenReturnAccessTokenResponse() throws Exception {
+		this.spring.register(AuthorizationServerConfigurationWithPublicClientAuthentication.class).autowire();
+
+		RegisteredClient registeredClient = TestRegisteredClients.registeredPublicClient()
+			.authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+			.build();
+		this.registeredClientRepository.save(registeredClient);
+
+		OAuth2Authorization authorization = TestOAuth2Authorizations.authorization(registeredClient).build();
+		this.authorizationService.save(authorization);
+
+		this.mvc
+			.perform(post(DEFAULT_TOKEN_ENDPOINT_URI).params(getRefreshTokenRequestParameters(authorization))
+				.param(OAuth2ParameterNames.CLIENT_ID, registeredClient.getClientId()))
+			.andExpect(status().isOk())
+			.andExpect(header().string(HttpHeaders.CACHE_CONTROL, containsString("no-store")))
+			.andExpect(header().string(HttpHeaders.PRAGMA, containsString("no-cache")))
+			.andExpect(jsonPath("$.access_token").isNotEmpty())
+			.andExpect(jsonPath("$.token_type").isNotEmpty())
+			.andExpect(jsonPath("$.expires_in").isNotEmpty())
+			.andExpect(jsonPath("$.refresh_token").isNotEmpty())
+			.andExpect(jsonPath("$.scope").isNotEmpty());
 	}
 
 	private static MultiValueMap<String, String> getRefreshTokenRequestParameters(OAuth2Authorization authorization) {
@@ -224,7 +274,8 @@ public class OAuth2RefreshTokenGrantTests {
 		return parameters;
 	}
 
-	private static MultiValueMap<String, String> getTokenRevocationRequestParameters(OAuth2Token token, OAuth2TokenType tokenType) {
+	private static MultiValueMap<String, String> getTokenRevocationRequestParameters(OAuth2Token token,
+			OAuth2TokenType tokenType) {
 		MultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
 		parameters.set(OAuth2ParameterNames.TOKEN, token.getTokenValue());
 		parameters.set(OAuth2ParameterNames.TOKEN_TYPE_HINT, tokenType.getValue());
@@ -244,8 +295,10 @@ public class OAuth2RefreshTokenGrantTests {
 	static class AuthorizationServerConfiguration {
 
 		@Bean
-		OAuth2AuthorizationService authorizationService(JdbcOperations jdbcOperations, RegisteredClientRepository registeredClientRepository) {
-			JdbcOAuth2AuthorizationService authorizationService = new JdbcOAuth2AuthorizationService(jdbcOperations, registeredClientRepository);
+		OAuth2AuthorizationService authorizationService(JdbcOperations jdbcOperations,
+				RegisteredClientRepository registeredClientRepository) {
+			JdbcOAuth2AuthorizationService authorizationService = new JdbcOAuth2AuthorizationService(jdbcOperations,
+					registeredClientRepository);
 			authorizationService.setAuthorizationRowMapper(new RowMapper(registeredClientRepository));
 			authorizationService.setAuthorizationParametersMapper(new ParametersMapper());
 			return authorizationService;
@@ -253,7 +306,8 @@ public class OAuth2RefreshTokenGrantTests {
 
 		@Bean
 		RegisteredClientRepository registeredClientRepository(JdbcOperations jdbcOperations) {
-			JdbcRegisteredClientRepository jdbcRegisteredClientRepository = new JdbcRegisteredClientRepository(jdbcOperations);
+			JdbcRegisteredClientRepository jdbcRegisteredClientRepository = new JdbcRegisteredClientRepository(
+					jdbcOperations);
 			RegisteredClientParametersMapper registeredClientParametersMapper = new RegisteredClientParametersMapper();
 			jdbcRegisteredClientRepository.setRegisteredClientParametersMapper(registeredClientParametersMapper);
 			return jdbcRegisteredClientRepository;
@@ -271,7 +325,7 @@ public class OAuth2RefreshTokenGrantTests {
 
 		@Bean
 		OAuth2TokenCustomizer<JwtEncodingContext> jwtCustomizer() {
-			return context -> {
+			return (context) -> {
 				if (AuthorizationGrantType.REFRESH_TOKEN.equals(context.getAuthorizationGrantType())) {
 					Authentication principal = context.getPrincipal();
 					Set<String> authorities = new HashSet<>();
@@ -307,4 +361,119 @@ public class OAuth2RefreshTokenGrantTests {
 		}
 
 	}
+
+	@EnableWebSecurity
+	@Configuration(proxyBeanMethods = false)
+	static class AuthorizationServerConfigurationWithPublicClientAuthentication
+			extends AuthorizationServerConfiguration {
+
+		// @formatter:off
+		@Bean
+		SecurityFilterChain authorizationServerSecurityFilterChain(
+				HttpSecurity http, RegisteredClientRepository registeredClientRepository) throws Exception {
+
+			OAuth2AuthorizationServerConfigurer authorizationServerConfigurer =
+					new OAuth2AuthorizationServerConfigurer();
+			authorizationServerConfigurer
+					.clientAuthentication((clientAuthentication) ->
+							clientAuthentication
+									.authenticationConverter(
+											new PublicClientRefreshTokenAuthenticationConverter())
+									.authenticationProvider(
+											new PublicClientRefreshTokenAuthenticationProvider(registeredClientRepository))
+					);
+			RequestMatcher endpointsMatcher = authorizationServerConfigurer.getEndpointsMatcher();
+
+			http
+					.securityMatcher(endpointsMatcher)
+					.authorizeHttpRequests((authorize) ->
+							authorize.anyRequest().authenticated()
+					)
+					.csrf((csrf) -> csrf.ignoringRequestMatchers(endpointsMatcher))
+					.apply(authorizationServerConfigurer);
+			return http.build();
+		}
+		// @formatter:on
+
+	}
+
+	@Transient
+	private static final class PublicClientRefreshTokenAuthenticationToken extends OAuth2ClientAuthenticationToken {
+
+		private PublicClientRefreshTokenAuthenticationToken(String clientId) {
+			super(clientId, ClientAuthenticationMethod.NONE, null, null);
+		}
+
+		private PublicClientRefreshTokenAuthenticationToken(RegisteredClient registeredClient) {
+			super(registeredClient, ClientAuthenticationMethod.NONE, null);
+		}
+
+	}
+
+	private static final class PublicClientRefreshTokenAuthenticationConverter implements AuthenticationConverter {
+
+		@Nullable
+		@Override
+		public Authentication convert(HttpServletRequest request) {
+			// grant_type (REQUIRED)
+			String grantType = request.getParameter(OAuth2ParameterNames.GRANT_TYPE);
+			if (!AuthorizationGrantType.REFRESH_TOKEN.getValue().equals(grantType)) {
+				return null;
+			}
+
+			// client_id (REQUIRED)
+			String clientId = request.getParameter(OAuth2ParameterNames.CLIENT_ID);
+			if (!StringUtils.hasText(clientId)) {
+				return null;
+			}
+
+			return new PublicClientRefreshTokenAuthenticationToken(clientId);
+		}
+
+	}
+
+	private static final class PublicClientRefreshTokenAuthenticationProvider implements AuthenticationProvider {
+
+		private final RegisteredClientRepository registeredClientRepository;
+
+		private PublicClientRefreshTokenAuthenticationProvider(RegisteredClientRepository registeredClientRepository) {
+			Assert.notNull(registeredClientRepository, "registeredClientRepository cannot be null");
+			this.registeredClientRepository = registeredClientRepository;
+		}
+
+		@Override
+		public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+			PublicClientRefreshTokenAuthenticationToken publicClientAuthentication = (PublicClientRefreshTokenAuthenticationToken) authentication;
+
+			if (!ClientAuthenticationMethod.NONE.equals(publicClientAuthentication.getClientAuthenticationMethod())) {
+				return null;
+			}
+
+			String clientId = publicClientAuthentication.getPrincipal().toString();
+			RegisteredClient registeredClient = this.registeredClientRepository.findByClientId(clientId);
+			if (registeredClient == null) {
+				throwInvalidClient(OAuth2ParameterNames.CLIENT_ID);
+			}
+
+			if (!registeredClient.getClientAuthenticationMethods()
+				.contains(publicClientAuthentication.getClientAuthenticationMethod())) {
+				throwInvalidClient("authentication_method");
+			}
+
+			return new PublicClientRefreshTokenAuthenticationToken(registeredClient);
+		}
+
+		@Override
+		public boolean supports(Class<?> authentication) {
+			return PublicClientRefreshTokenAuthenticationToken.class.isAssignableFrom(authentication);
+		}
+
+		private static void throwInvalidClient(String parameterName) {
+			OAuth2Error error = new OAuth2Error(OAuth2ErrorCodes.INVALID_CLIENT,
+					"Public client authentication failed: " + parameterName, null);
+			throw new OAuth2AuthenticationException(error);
+		}
+
+	}
+
 }

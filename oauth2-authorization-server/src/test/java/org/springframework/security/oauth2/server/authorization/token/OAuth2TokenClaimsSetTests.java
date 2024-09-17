@@ -33,9 +33,8 @@ public class OAuth2TokenClaimsSetTests {
 
 	@Test
 	public void buildWhenClaimsEmptyThenThrowIllegalArgumentException() {
-		assertThatThrownBy(() -> OAuth2TokenClaimsSet.builder().build())
-				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessage("claims cannot be empty");
+		assertThatThrownBy(() -> OAuth2TokenClaimsSet.builder().build()).isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("claims cannot be empty");
 	}
 
 	@Test
@@ -54,7 +53,7 @@ public class OAuth2TokenClaimsSetTests {
 				.notBefore(issuedAt)
 				.expiresAt(expiresAt)
 				.id("id")
-				.claims(claims -> claims.put(customClaimName, customClaimValue))
+				.claims((claims) -> claims.put(customClaimName, customClaimValue))
 				.build();
 
 		OAuth2TokenClaimsSet claimsSet = OAuth2TokenClaimsSet.builder()
@@ -65,7 +64,7 @@ public class OAuth2TokenClaimsSetTests {
 				.notBefore(expectedClaimsSet.getNotBefore())
 				.expiresAt(expectedClaimsSet.getExpiresAt())
 				.id(expectedClaimsSet.getId())
-				.claims(claims -> claims.put(customClaimName, expectedClaimsSet.getClaim(customClaimName)))
+				.claims((claims) -> claims.put(customClaimName, expectedClaimsSet.getClaim(customClaimName)))
 				.build();
 		// @formatter:on
 
@@ -83,15 +82,15 @@ public class OAuth2TokenClaimsSetTests {
 	@Test
 	public void claimWhenNameNullThenThrowIllegalArgumentException() {
 		assertThatThrownBy(() -> OAuth2TokenClaimsSet.builder().claim(null, "value"))
-				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessage("name cannot be empty");
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("name cannot be empty");
 	}
 
 	@Test
 	public void claimWhenValueNullThenThrowIllegalArgumentException() {
 		assertThatThrownBy(() -> OAuth2TokenClaimsSet.builder().claim("name", null))
-				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessage("value cannot be null");
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("value cannot be null");
 	}
 
 }

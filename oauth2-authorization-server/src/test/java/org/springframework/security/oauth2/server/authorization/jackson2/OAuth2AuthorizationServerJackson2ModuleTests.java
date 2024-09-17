@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 the original author or authors.
+ * Copyright 2020-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,11 @@ public class OAuth2AuthorizationServerJackson2ModuleTests {
 
 	private static final TypeReference<Map<String, Object>> STRING_OBJECT_MAP = new TypeReference<Map<String, Object>>() {
 	};
+
 	private static final TypeReference<Set<String>> STRING_SET = new TypeReference<Set<String>>() {
+	};
+
+	private static final TypeReference<String[]> STRING_ARRAY = new TypeReference<String[]>() {
 	};
 
 	private ObjectMapper objectMapper;
@@ -71,4 +75,13 @@ public class OAuth2AuthorizationServerJackson2ModuleTests {
 		String json = this.objectMapper.writeValueAsString(set);
 		assertThat(this.objectMapper.readValue(json, STRING_SET)).isEqualTo(set);
 	}
+
+	// gh-1666
+	@Test
+	public void readValueWhenStringArrayThenSuccess() throws Exception {
+		String[] array = new String[] { "one", "two" };
+		String json = this.objectMapper.writeValueAsString(array);
+		assertThat(this.objectMapper.readValue(json, STRING_ARRAY)).isEqualTo(array);
+	}
+
 }

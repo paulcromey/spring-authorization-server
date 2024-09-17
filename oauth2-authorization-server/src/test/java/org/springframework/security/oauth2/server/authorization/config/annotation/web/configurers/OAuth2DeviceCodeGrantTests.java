@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 the original author or authors.
+ * Copyright 2020-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,6 +70,7 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.TestRegisteredClients;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
+import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.test.SpringTestContext;
 import org.springframework.security.oauth2.server.authorization.test.SpringTestContextExtension;
 import org.springframework.test.web.servlet.MockMvc;
@@ -93,23 +94,28 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @ExtendWith(SpringTestContextExtension.class)
 public class OAuth2DeviceCodeGrantTests {
+
 	private static final String DEFAULT_DEVICE_AUTHORIZATION_ENDPOINT_URI = "/oauth2/device_authorization";
+
 	private static final String DEFAULT_DEVICE_VERIFICATION_ENDPOINT_URI = "/oauth2/device_verification";
+
 	private static final String DEFAULT_TOKEN_ENDPOINT_URI = "/oauth2/token";
+
 	private static final OAuth2TokenType DEVICE_CODE_TOKEN_TYPE = new OAuth2TokenType(OAuth2ParameterNames.DEVICE_CODE);
+
 	private static final String USER_CODE = "ABCD-EFGH";
+
 	private static final String STATE = "123";
+
 	private static final String DEVICE_CODE = "abc-XYZ";
 
 	private static EmbeddedDatabase db;
 
 	private static JWKSource<SecurityContext> jwkSource;
 
-	private static final HttpMessageConverter<OAuth2DeviceAuthorizationResponse> deviceAuthorizationResponseHttpMessageConverter =
-			new OAuth2DeviceAuthorizationResponseHttpMessageConverter();
+	private static final HttpMessageConverter<OAuth2DeviceAuthorizationResponse> deviceAuthorizationResponseHttpMessageConverter = new OAuth2DeviceAuthorizationResponseHttpMessageConverter();
 
-	private static final HttpMessageConverter<OAuth2AccessTokenResponse> accessTokenResponseHttpMessageConverter =
-			new OAuth2AccessTokenResponseHttpMessageConverter();
+	private static final HttpMessageConverter<OAuth2AccessTokenResponse> accessTokenResponseHttpMessageConverter = new OAuth2AccessTokenResponseHttpMessageConverter();
 
 	public final SpringTestContext spring = new SpringTestContext();
 
@@ -146,9 +152,9 @@ public class OAuth2DeviceCodeGrantTests {
 
 	@AfterEach
 	public void tearDown() {
-		jdbcOperations.update("truncate table oauth2_authorization");
-		jdbcOperations.update("truncate table oauth2_authorization_consent");
-		jdbcOperations.update("truncate table oauth2_registered_client");
+		this.jdbcOperations.update("truncate table oauth2_authorization");
+		this.jdbcOperations.update("truncate table oauth2_authorization_consent");
+		this.jdbcOperations.update("truncate table oauth2_registered_client");
 	}
 
 	@AfterAll
@@ -204,7 +210,7 @@ public class OAuth2DeviceCodeGrantTests {
 
 	@Test
 	public void requestWhenDeviceAuthorizationRequestValidThenReturnDeviceAuthorizationResponse() throws Exception {
-		this.spring.register(AuthorizationServerConfiguration.class).autowire();
+		this.spring.register(AuthorizationServerConfigurationWithMultipleIssuersAllowed.class).autowire();
 
 		// @formatter:off
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient()
@@ -218,8 +224,10 @@ public class OAuth2DeviceCodeGrantTests {
 		parameters.set(OAuth2ParameterNames.SCOPE,
 				StringUtils.collectionToDelimitedString(registeredClient.getScopes(), " "));
 
+		String issuer = "https://example.com:8443/issuer1";
+
 		// @formatter:off
-		MvcResult mvcResult = this.mvc.perform(post(DEFAULT_DEVICE_AUTHORIZATION_ENDPOINT_URI)
+		MvcResult mvcResult = this.mvc.perform(post(issuer.concat(DEFAULT_DEVICE_AUTHORIZATION_ENDPOINT_URI))
 				.params(parameters)
 				.headers(withClientAuth(registeredClient)))
 				.andExpect(status().isOk())
@@ -234,15 +242,14 @@ public class OAuth2DeviceCodeGrantTests {
 		MockHttpServletResponse servletResponse = mvcResult.getResponse();
 		MockClientHttpResponse httpResponse = new MockClientHttpResponse(servletResponse.getContentAsByteArray(),
 				HttpStatus.OK);
-		OAuth2DeviceAuthorizationResponse deviceAuthorizationResponse =
-				deviceAuthorizationResponseHttpMessageConverter.read(OAuth2DeviceAuthorizationResponse.class,
-						httpResponse);
+		OAuth2DeviceAuthorizationResponse deviceAuthorizationResponse = deviceAuthorizationResponseHttpMessageConverter
+			.read(OAuth2DeviceAuthorizationResponse.class, httpResponse);
 		String userCode = deviceAuthorizationResponse.getUserCode().getTokenValue();
 		assertThat(userCode).matches("[A-Z]{4}-[A-Z]{4}");
 		assertThat(deviceAuthorizationResponse.getVerificationUri())
-				.isEqualTo("http://localhost/oauth2/device_verification");
+			.isEqualTo("https://example.com:8443/oauth2/device_verification");
 		assertThat(deviceAuthorizationResponse.getVerificationUriComplete())
-				.isEqualTo("http://localhost/oauth2/device_verification?user_code=" + userCode);
+			.isEqualTo("https://example.com:8443/oauth2/device_verification?user_code=" + userCode);
 
 		String deviceCode = deviceAuthorizationResponse.getDeviceCode().getTokenValue();
 		OAuth2Authorization authorization = this.authorizationService.findByToken(deviceCode, DEVICE_CODE_TOKEN_TYPE);
@@ -286,7 +293,7 @@ public class OAuth2DeviceCodeGrantTests {
 
 	@Test
 	public void requestWhenDeviceVerificationRequestValidThenDisplaysConsentPage() throws Exception {
-		this.spring.register(AuthorizationServerConfiguration.class).autowire();
+		this.spring.register(AuthorizationServerConfigurationWithMultipleIssuersAllowed.class).autowire();
 
 		// @formatter:off
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient()
@@ -311,8 +318,10 @@ public class OAuth2DeviceCodeGrantTests {
 		MultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
 		parameters.set(OAuth2ParameterNames.USER_CODE, USER_CODE);
 
+		String issuer = "https://example.com:8443/issuer1";
+
 		// @formatter:off
-		MvcResult mvcResult = this.mvc.perform(get(DEFAULT_DEVICE_VERIFICATION_ENDPOINT_URI)
+		MvcResult mvcResult = this.mvc.perform(get(issuer.concat(DEFAULT_DEVICE_VERIFICATION_ENDPOINT_URI))
 				.queryParams(parameters)
 				.with(user("user")))
 				.andExpect(status().isOk())
@@ -520,8 +529,8 @@ public class OAuth2DeviceCodeGrantTests {
 		MockHttpServletResponse servletResponse = mvcResult.getResponse();
 		MockClientHttpResponse httpResponse = new MockClientHttpResponse(servletResponse.getContentAsByteArray(),
 				HttpStatus.OK);
-		OAuth2AccessTokenResponse accessTokenResponse =
-				accessTokenResponseHttpMessageConverter.read(OAuth2AccessTokenResponse.class, httpResponse);
+		OAuth2AccessTokenResponse accessTokenResponse = accessTokenResponseHttpMessageConverter
+			.read(OAuth2AccessTokenResponse.class, httpResponse);
 
 		String accessToken = accessTokenResponse.getAccessToken().getTokenValue();
 		OAuth2Authorization accessTokenAuthorization = this.authorizationService.findByToken(accessToken,
@@ -577,6 +586,17 @@ public class OAuth2DeviceCodeGrantTests {
 		@Bean
 		PasswordEncoder passwordEncoder() {
 			return NoOpPasswordEncoder.getInstance();
+		}
+
+	}
+
+	@EnableWebSecurity
+	@Import(OAuth2AuthorizationServerConfiguration.class)
+	static class AuthorizationServerConfigurationWithMultipleIssuersAllowed extends AuthorizationServerConfiguration {
+
+		@Bean
+		AuthorizationServerSettings authorizationServerSettings() {
+			return AuthorizationServerSettings.builder().multipleIssuersAllowed(true).build();
 		}
 
 	}

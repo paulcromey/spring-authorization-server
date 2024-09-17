@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 the original author or authors.
+ * Copyright 2020-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.springframework.security.config.annotation.ObjectPostProcessor;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.server.authorization.oidc.OidcProviderConfiguration;
 import org.springframework.security.oauth2.server.authorization.oidc.web.OidcProviderConfigurationEndpointFilter;
+import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -35,23 +36,29 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
  * @see OidcProviderConfigurationEndpointFilter
  */
 public final class OidcProviderConfigurationEndpointConfigurer extends AbstractOAuth2Configurer {
+
 	private RequestMatcher requestMatcher;
+
 	private Consumer<OidcProviderConfiguration.Builder> providerConfigurationCustomizer;
+
 	private Consumer<OidcProviderConfiguration.Builder> defaultProviderConfigurationCustomizer;
 
 	/**
 	 * Restrict for internal use only.
+	 * @param objectPostProcessor an {@code ObjectPostProcessor}
 	 */
 	OidcProviderConfigurationEndpointConfigurer(ObjectPostProcessor<Object> objectPostProcessor) {
 		super(objectPostProcessor);
 	}
 
 	/**
-	 * Sets the {@code Consumer} providing access to the {@link OidcProviderConfiguration.Builder}
-	 * allowing the ability to customize the claims of the OpenID Provider's configuration.
-	 *
-	 * @param providerConfigurationCustomizer the {@code Consumer} providing access to the {@link OidcProviderConfiguration.Builder}
-	 * @return the {@link OidcProviderConfigurationEndpointConfigurer} for further configuration
+	 * Sets the {@code Consumer} providing access to the
+	 * {@link OidcProviderConfiguration.Builder} allowing the ability to customize the
+	 * claims of the OpenID Provider's configuration.
+	 * @param providerConfigurationCustomizer the {@code Consumer} providing access to the
+	 * {@link OidcProviderConfiguration.Builder}
+	 * @return the {@link OidcProviderConfigurationEndpointConfigurer} for further
+	 * configuration
 	 */
 	public OidcProviderConfigurationEndpointConfigurer providerConfigurationCustomizer(
 			Consumer<OidcProviderConfiguration.Builder> providerConfigurationCustomizer) {
@@ -61,27 +68,29 @@ public final class OidcProviderConfigurationEndpointConfigurer extends AbstractO
 
 	void addDefaultProviderConfigurationCustomizer(
 			Consumer<OidcProviderConfiguration.Builder> defaultProviderConfigurationCustomizer) {
-		this.defaultProviderConfigurationCustomizer =
-				this.defaultProviderConfigurationCustomizer == null ?
-						defaultProviderConfigurationCustomizer :
-						this.defaultProviderConfigurationCustomizer.andThen(defaultProviderConfigurationCustomizer);
+		this.defaultProviderConfigurationCustomizer = (this.defaultProviderConfigurationCustomizer == null)
+				? defaultProviderConfigurationCustomizer
+				: this.defaultProviderConfigurationCustomizer.andThen(defaultProviderConfigurationCustomizer);
 	}
 
 	@Override
 	void init(HttpSecurity httpSecurity) {
-		this.requestMatcher = new AntPathRequestMatcher(
-				"/.well-known/openid-configuration", HttpMethod.GET.name());
+		AuthorizationServerSettings authorizationServerSettings = OAuth2ConfigurerUtils
+			.getAuthorizationServerSettings(httpSecurity);
+		String oidcProviderConfigurationEndpointUri = authorizationServerSettings.isMultipleIssuersAllowed()
+				? "/**/.well-known/openid-configuration" : "/.well-known/openid-configuration";
+		this.requestMatcher = new AntPathRequestMatcher(oidcProviderConfigurationEndpointUri, HttpMethod.GET.name());
 	}
 
 	@Override
 	void configure(HttpSecurity httpSecurity) {
-		OidcProviderConfigurationEndpointFilter oidcProviderConfigurationEndpointFilter =
-				new OidcProviderConfigurationEndpointFilter();
+		OidcProviderConfigurationEndpointFilter oidcProviderConfigurationEndpointFilter = new OidcProviderConfigurationEndpointFilter();
 		Consumer<OidcProviderConfiguration.Builder> providerConfigurationCustomizer = getProviderConfigurationCustomizer();
 		if (providerConfigurationCustomizer != null) {
 			oidcProviderConfigurationEndpointFilter.setProviderConfigurationCustomizer(providerConfigurationCustomizer);
 		}
-		httpSecurity.addFilterBefore(postProcess(oidcProviderConfigurationEndpointFilter), AbstractPreAuthenticatedProcessingFilter.class);
+		httpSecurity.addFilterBefore(postProcess(oidcProviderConfigurationEndpointFilter),
+				AbstractPreAuthenticatedProcessingFilter.class);
 	}
 
 	private Consumer<OidcProviderConfiguration.Builder> getProviderConfigurationCustomizer() {
@@ -91,10 +100,9 @@ public final class OidcProviderConfigurationEndpointConfigurer extends AbstractO
 				providerConfigurationCustomizer = this.defaultProviderConfigurationCustomizer;
 			}
 			if (this.providerConfigurationCustomizer != null) {
-				providerConfigurationCustomizer =
-						providerConfigurationCustomizer == null ?
-								this.providerConfigurationCustomizer :
-								providerConfigurationCustomizer.andThen(this.providerConfigurationCustomizer);
+				providerConfigurationCustomizer = (providerConfigurationCustomizer != null)
+						? providerConfigurationCustomizer.andThen(this.providerConfigurationCustomizer)
+						: this.providerConfigurationCustomizer;
 			}
 		}
 		return providerConfigurationCustomizer;

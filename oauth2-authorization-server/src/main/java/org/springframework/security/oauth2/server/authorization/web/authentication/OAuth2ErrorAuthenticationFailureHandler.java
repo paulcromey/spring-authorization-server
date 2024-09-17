@@ -20,7 +20,6 @@ import java.io.IOException;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -35,16 +34,19 @@ import org.springframework.security.web.authentication.AuthenticationFailureHand
 import org.springframework.util.Assert;
 
 /**
- * An implementation of an {@link AuthenticationFailureHandler} used for handling an {@link OAuth2AuthenticationException}
- * and returning the {@link OAuth2Error OAuth 2.0 Error Response}.
+ * An implementation of an {@link AuthenticationFailureHandler} used for handling an
+ * {@link OAuth2AuthenticationException} and returning the {@link OAuth2Error OAuth 2.0
+ * Error Response}.
  *
  * @author Dmitriy Dubson
+ * @since 1.2
  * @see AuthenticationFailureHandler
  * @see OAuth2ErrorHttpMessageConverter
- * @since 1.2
  */
 public final class OAuth2ErrorAuthenticationFailureHandler implements AuthenticationFailureHandler {
+
 	private final Log logger = LogFactory.getLog(getClass());
+
 	private HttpMessageConverter<OAuth2Error> errorResponseConverter = new OAuth2ErrorHttpMessageConverter();
 
 	@Override
@@ -56,19 +58,21 @@ public final class OAuth2ErrorAuthenticationFailureHandler implements Authentica
 		if (authenticationException instanceof OAuth2AuthenticationException) {
 			OAuth2Error error = ((OAuth2AuthenticationException) authenticationException).getError();
 			this.errorResponseConverter.write(error, null, httpResponse);
-		} else {
+		}
+		else {
 			if (this.logger.isWarnEnabled()) {
-				this.logger.warn(AuthenticationException.class.getSimpleName() + " must be of type " +
-						OAuth2AuthenticationException.class.getName() +
-						" but was " + authenticationException.getClass().getName());
+				this.logger.warn(AuthenticationException.class.getSimpleName() + " must be of type "
+						+ OAuth2AuthenticationException.class.getName() + " but was "
+						+ authenticationException.getClass().getName());
 			}
 		}
 	}
 
 	/**
-	 * Sets the {@link HttpMessageConverter} used for converting an {@link OAuth2Error} to an HTTP response.
-	 *
-	 * @param errorResponseConverter the {@link HttpMessageConverter} used for converting an {@link OAuth2Error} to an HTTP response
+	 * Sets the {@link HttpMessageConverter} used for converting an {@link OAuth2Error} to
+	 * an HTTP response.
+	 * @param errorResponseConverter the {@link HttpMessageConverter} used for converting
+	 * an {@link OAuth2Error} to an HTTP response
 	 */
 	public void setErrorResponseConverter(HttpMessageConverter<OAuth2Error> errorResponseConverter) {
 		Assert.notNull(errorResponseConverter, "errorResponseConverter cannot be null");

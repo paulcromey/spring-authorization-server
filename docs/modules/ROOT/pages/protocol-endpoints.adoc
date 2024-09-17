@@ -257,14 +257,79 @@ public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity h
 `OAuth2TokenEndpointConfigurer` configures the `OAuth2TokenEndpointFilter` and registers it with the OAuth2 authorization server `SecurityFilterChain` `@Bean`.
 `OAuth2TokenEndpointFilter` is the `Filter` that processes OAuth2 access token requests.
 
-The supported https://datatracker.ietf.org/doc/html/rfc6749#section-1.3[authorization grant types] are `authorization_code`, `refresh_token`, `client_credentials`, and `urn:ietf:params:oauth:grant-type:device_code`.
+The supported https://datatracker.ietf.org/doc/html/rfc6749#section-1.3[authorization grant types] are `authorization_code`, `refresh_token`, `client_credentials`, `urn:ietf:params:oauth:grant-type:device_code`, and `urn:ietf:params:oauth:grant-type:token-exchange`.
 
 `OAuth2TokenEndpointFilter` is configured with the following defaults:
 
-* `*AuthenticationConverter*` -- A `DelegatingAuthenticationConverter` composed of `OAuth2AuthorizationCodeAuthenticationConverter`, `OAuth2RefreshTokenAuthenticationConverter`, `OAuth2ClientCredentialsAuthenticationConverter`, and `OAuth2DeviceCodeAuthenticationConverter`.
-* `*AuthenticationManager*` -- An `AuthenticationManager` composed of `OAuth2AuthorizationCodeAuthenticationProvider`, `OAuth2RefreshTokenAuthenticationProvider`, `OAuth2ClientCredentialsAuthenticationProvider`, and `OAuth2DeviceCodeAuthenticationProvider`.
-* `*AuthenticationSuccessHandler*` -- An internal implementation that handles an `OAuth2AccessTokenAuthenticationToken` and returns the `OAuth2AccessTokenResponse`.
+* `*AuthenticationConverter*` -- A `DelegatingAuthenticationConverter` composed of `OAuth2AuthorizationCodeAuthenticationConverter`, `OAuth2RefreshTokenAuthenticationConverter`, `OAuth2ClientCredentialsAuthenticationConverter`, `OAuth2DeviceCodeAuthenticationConverter`, and `OAuth2TokenExchangeAuthenticationConverter`.
+* `*AuthenticationManager*` -- An `AuthenticationManager` composed of `OAuth2AuthorizationCodeAuthenticationProvider`, `OAuth2RefreshTokenAuthenticationProvider`, `OAuth2ClientCredentialsAuthenticationProvider`, `OAuth2DeviceCodeAuthenticationProvider`, and `OAuth2TokenExchangeAuthenticationProvider`.
+* `*AuthenticationSuccessHandler*` -- An `OAuth2AccessTokenResponseAuthenticationSuccessHandler`.
 * `*AuthenticationFailureHandler*` -- An `OAuth2ErrorAuthenticationFailureHandler`.
+
+[[oauth2-token-endpoint-customizing-client-credentials-grant-request-validation]]
+=== Customizing Client Credentials Grant Request Validation
+
+`OAuth2ClientCredentialsAuthenticationValidator` is the default validator used for validating specific OAuth2 Client Credentials Grant request parameters.
+The default implementation validates the `scope` parameter.
+If validation fails, an `OAuth2AuthenticationException` is thrown.
+
+`OAuth2ClientCredentialsAuthenticationProvider` provides the ability to override the default request validation by supplying a custom authentication validator of type `Consumer<OAuth2ClientCredentialsAuthenticationContext>` to `setAuthenticationValidator()`.
+
+[TIP]
+`OAuth2ClientCredentialsAuthenticationContext` holds the `OAuth2ClientCredentialsAuthenticationToken`, which contains the OAuth2 Client Credentials Grant request parameters.
+
+[IMPORTANT]
+If validation fails, the authentication validator *MUST* throw `OAuth2AuthenticationException`.
+
+The following example shows how to configure `OAuth2ClientCredentialsAuthenticationProvider` with a custom authentication validator that overrides the default `scope` validation:
+
+[source,java]
+----
+@Bean
+public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
+	OAuth2AuthorizationServerConfigurer authorizationServerConfigurer =
+		new OAuth2AuthorizationServerConfigurer();
+	http.apply(authorizationServerConfigurer);
+
+	authorizationServerConfigurer
+		.tokenEndpoint(tokenEndpoint ->
+			tokenEndpoint
+				.authenticationProviders(configureAuthenticationValidator())
+		);
+
+	return http.build();
+}
+
+private Consumer<List<AuthenticationProvider>> configureAuthenticationValidator() {
+	return (authenticationProviders) ->
+		authenticationProviders.forEach((authenticationProvider) -> {
+			if (authenticationProvider instanceof OAuth2ClientCredentialsAuthenticationProvider) {
+				Consumer<OAuth2ClientCredentialsAuthenticationContext> authenticationValidator =
+					new CustomScopeValidator();
+
+				// Override default scope validation
+				((OAuth2ClientCredentialsAuthenticationProvider) authenticationProvider)
+					.setAuthenticationValidator(authenticationValidator);
+			}
+		});
+}
+
+static class CustomScopeValidator implements Consumer<OAuth2ClientCredentialsAuthenticationContext> {
+
+	@Override
+	public void accept(OAuth2ClientCredentialsAuthenticationContext authenticationContext) {
+		OAuth2ClientCredentialsAuthenticationToken clientCredentialsAuthentication =
+			authenticationContext.getAuthentication();
+
+		Set<String> requestedScopes = clientCredentialsAuthentication.getScopes();
+		RegisteredClient registeredClient = authenticationContext.getRegisteredClient();
+		Set<String> allowedScopes = registeredClient.getScopes();
+
+        // TODO Implement scope validation
+
+	}
+}
+----
 
 [[oauth2-token-introspection-endpoint]]
 == OAuth2 Token Introspection Endpoint
@@ -480,7 +545,7 @@ public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity h
 
 * `*AuthenticationConverter*` -- An `OidcLogoutAuthenticationConverter`.
 * `*AuthenticationManager*` -- An `AuthenticationManager` composed of `OidcLogoutAuthenticationProvider`.
-* `*AuthenticationSuccessHandler*` -- An internal implementation that handles an "`authenticated`" `OidcLogoutAuthenticationToken` and performs the logout.
+* `*AuthenticationSuccessHandler*` -- An `OidcLogoutAuthenticationSuccessHandler`.
 * `*AuthenticationFailureHandler*` -- An internal implementation that uses the `OAuth2Error` associated with the `OAuth2AuthenticationException` and returns the `OAuth2Error` response.
 
 [NOTE]

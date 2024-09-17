@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 the original author or authors.
+ * Copyright 2020-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,8 +62,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @ExtendWith(SpringTestContextExtension.class)
 public class OidcProviderConfigurationTests {
+
 	private static final String DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI = "/.well-known/openid-configuration";
-	private static final String ISSUER_URL = "https://example.com";
+
+	private static final String ISSUER = "https://example.com";
 
 	public final SpringTestContext spring = new SpringTestContext();
 
@@ -77,9 +79,30 @@ public class OidcProviderConfigurationTests {
 	public void requestWhenConfigurationRequestAndIssuerSetThenReturnDefaultConfigurationResponse() throws Exception {
 		this.spring.register(AuthorizationServerConfiguration.class).autowire();
 
-		this.mvc.perform(get(ISSUER_URL.concat(DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI)))
-				.andExpect(status().is2xxSuccessful())
-				.andExpectAll(defaultConfigurationMatchers());
+		this.mvc.perform(get(ISSUER.concat(DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI)))
+			.andExpect(status().is2xxSuccessful())
+			.andExpectAll(defaultConfigurationMatchers(ISSUER));
+	}
+
+	@Test
+	public void requestWhenConfigurationRequestIncludesIssuerPathThenConfigurationResponseHasIssuerPath()
+			throws Exception {
+		this.spring.register(AuthorizationServerConfigurationWithMultipleIssuersAllowed.class).autowire();
+
+		String issuer = "https://example.com:8443/issuer1";
+		this.mvc.perform(get(issuer.concat(DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI)))
+			.andExpect(status().is2xxSuccessful())
+			.andExpectAll(defaultConfigurationMatchers(issuer));
+
+		issuer = "https://example.com:8443/path1/issuer2";
+		this.mvc.perform(get(issuer.concat(DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI)))
+			.andExpect(status().is2xxSuccessful())
+			.andExpectAll(defaultConfigurationMatchers(issuer));
+
+		issuer = "https://example.com:8443/path1/path2/issuer3";
+		this.mvc.perform(get(issuer.concat(DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI)))
+			.andExpect(status().is2xxSuccessful())
+			.andExpectAll(defaultConfigurationMatchers(issuer));
 	}
 
 	// gh-632
@@ -87,56 +110,58 @@ public class OidcProviderConfigurationTests {
 	public void requestWhenConfigurationRequestAndUserAuthenticatedThenReturnConfigurationResponse() throws Exception {
 		this.spring.register(AuthorizationServerConfiguration.class).autowire();
 
-		this.mvc.perform(get(ISSUER_URL.concat(DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI))
-				.with(user("user")))
-				.andExpect(status().is2xxSuccessful())
-				.andExpectAll(defaultConfigurationMatchers());
+		this.mvc.perform(get(ISSUER.concat(DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI)).with(user("user")))
+			.andExpect(status().is2xxSuccessful())
+			.andExpectAll(defaultConfigurationMatchers(ISSUER));
 	}
 
 	// gh-616
 	@Test
-	public void requestWhenConfigurationRequestAndConfigurationCustomizerSetThenReturnCustomConfigurationResponse() throws Exception {
+	public void requestWhenConfigurationRequestAndConfigurationCustomizerSetThenReturnCustomConfigurationResponse()
+			throws Exception {
 		this.spring.register(AuthorizationServerConfigurationWithProviderConfigurationCustomizer.class).autowire();
 
-		this.mvc.perform(get(ISSUER_URL.concat(DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI)))
-				.andExpect(status().is2xxSuccessful())
-				.andExpect(jsonPath(OAuth2AuthorizationServerMetadataClaimNames.SCOPES_SUPPORTED,
-						hasItems(OidcScopes.OPENID, OidcScopes.PROFILE, OidcScopes.EMAIL)));
+		this.mvc.perform(get(ISSUER.concat(DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI)))
+			.andExpect(status().is2xxSuccessful())
+			.andExpect(jsonPath(OAuth2AuthorizationServerMetadataClaimNames.SCOPES_SUPPORTED,
+					hasItems(OidcScopes.OPENID, OidcScopes.PROFILE, OidcScopes.EMAIL)));
 	}
 
 	@Test
-	public void requestWhenConfigurationRequestAndClientRegistrationEnabledThenConfigurationResponseIncludesRegistrationEndpoint() throws Exception {
+	public void requestWhenConfigurationRequestAndClientRegistrationEnabledThenConfigurationResponseIncludesRegistrationEndpoint()
+			throws Exception {
 		this.spring.register(AuthorizationServerConfigurationWithClientRegistrationEnabled.class).autowire();
 
-		this.mvc.perform(get(ISSUER_URL.concat(DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI)))
-				.andExpect(status().is2xxSuccessful())
-				.andExpectAll(defaultConfigurationMatchers())
-				.andExpect(jsonPath("$.registration_endpoint").value(ISSUER_URL.concat(this.authorizationServerSettings.getOidcClientRegistrationEndpoint())));
+		this.mvc.perform(get(ISSUER.concat(DEFAULT_OIDC_PROVIDER_CONFIGURATION_ENDPOINT_URI)))
+			.andExpect(status().is2xxSuccessful())
+			.andExpectAll(defaultConfigurationMatchers(ISSUER))
+			.andExpect(jsonPath("$.registration_endpoint")
+				.value(ISSUER.concat(this.authorizationServerSettings.getOidcClientRegistrationEndpoint())));
 	}
 
-	private ResultMatcher[] defaultConfigurationMatchers() {
+	private ResultMatcher[] defaultConfigurationMatchers(String issuer) {
 		// @formatter:off
 		return new ResultMatcher[] {
-				jsonPath("issuer").value(ISSUER_URL),
-				jsonPath("authorization_endpoint").value(ISSUER_URL.concat(this.authorizationServerSettings.getAuthorizationEndpoint())),
-				jsonPath("token_endpoint").value(ISSUER_URL.concat(this.authorizationServerSettings.getTokenEndpoint())),
+				jsonPath("issuer").value(issuer),
+				jsonPath("authorization_endpoint").value(issuer.concat(this.authorizationServerSettings.getAuthorizationEndpoint())),
+				jsonPath("token_endpoint").value(issuer.concat(this.authorizationServerSettings.getTokenEndpoint())),
 				jsonPath("$.token_endpoint_auth_methods_supported[0]").value(ClientAuthenticationMethod.CLIENT_SECRET_BASIC.getValue()),
 				jsonPath("$.token_endpoint_auth_methods_supported[1]").value(ClientAuthenticationMethod.CLIENT_SECRET_POST.getValue()),
 				jsonPath("$.token_endpoint_auth_methods_supported[2]").value(ClientAuthenticationMethod.CLIENT_SECRET_JWT.getValue()),
 				jsonPath("$.token_endpoint_auth_methods_supported[3]").value(ClientAuthenticationMethod.PRIVATE_KEY_JWT.getValue()),
-				jsonPath("jwks_uri").value(ISSUER_URL.concat(this.authorizationServerSettings.getJwkSetEndpoint())),
-				jsonPath("userinfo_endpoint").value(ISSUER_URL.concat(this.authorizationServerSettings.getOidcUserInfoEndpoint())),
-				jsonPath("end_session_endpoint").value(ISSUER_URL.concat(this.authorizationServerSettings.getOidcLogoutEndpoint())),
+				jsonPath("jwks_uri").value(issuer.concat(this.authorizationServerSettings.getJwkSetEndpoint())),
+				jsonPath("userinfo_endpoint").value(issuer.concat(this.authorizationServerSettings.getOidcUserInfoEndpoint())),
+				jsonPath("end_session_endpoint").value(issuer.concat(this.authorizationServerSettings.getOidcLogoutEndpoint())),
 				jsonPath("response_types_supported").value(OAuth2AuthorizationResponseType.CODE.getValue()),
 				jsonPath("$.grant_types_supported[0]").value(AuthorizationGrantType.AUTHORIZATION_CODE.getValue()),
 				jsonPath("$.grant_types_supported[1]").value(AuthorizationGrantType.CLIENT_CREDENTIALS.getValue()),
 				jsonPath("$.grant_types_supported[2]").value(AuthorizationGrantType.REFRESH_TOKEN.getValue()),
-				jsonPath("revocation_endpoint").value(ISSUER_URL.concat(this.authorizationServerSettings.getTokenRevocationEndpoint())),
+				jsonPath("revocation_endpoint").value(issuer.concat(this.authorizationServerSettings.getTokenRevocationEndpoint())),
 				jsonPath("$.revocation_endpoint_auth_methods_supported[0]").value(ClientAuthenticationMethod.CLIENT_SECRET_BASIC.getValue()),
 				jsonPath("$.revocation_endpoint_auth_methods_supported[1]").value(ClientAuthenticationMethod.CLIENT_SECRET_POST.getValue()),
 				jsonPath("$.revocation_endpoint_auth_methods_supported[2]").value(ClientAuthenticationMethod.CLIENT_SECRET_JWT.getValue()),
 				jsonPath("$.revocation_endpoint_auth_methods_supported[3]").value(ClientAuthenticationMethod.PRIVATE_KEY_JWT.getValue()),
-				jsonPath("introspection_endpoint").value(ISSUER_URL.concat(this.authorizationServerSettings.getTokenIntrospectionEndpoint())),
+				jsonPath("introspection_endpoint").value(issuer.concat(this.authorizationServerSettings.getTokenIntrospectionEndpoint())),
 				jsonPath("$.introspection_endpoint_auth_methods_supported[0]").value(ClientAuthenticationMethod.CLIENT_SECRET_BASIC.getValue()),
 				jsonPath("$.introspection_endpoint_auth_methods_supported[1]").value(ClientAuthenticationMethod.CLIENT_SECRET_POST.getValue()),
 				jsonPath("$.introspection_endpoint_auth_methods_supported[2]").value(ClientAuthenticationMethod.CLIENT_SECRET_JWT.getValue()),
@@ -152,60 +177,54 @@ public class OidcProviderConfigurationTests {
 	@Test
 	public void loadContextWhenIssuerNotValidUrlThenThrowException() {
 		assertThatThrownBy(
-				() -> this.spring.register(AuthorizationServerConfigurationWithInvalidIssuerUrl.class).autowire()
-		);
+				() -> this.spring.register(AuthorizationServerConfigurationWithInvalidIssuerUrl.class).autowire());
 	}
 
 	@Test
 	public void loadContextWhenIssuerNotValidUriThenThrowException() {
 		assertThatThrownBy(
-				() -> this.spring.register(AuthorizationServerConfigurationWithInvalidIssuerUri.class).autowire()
-		);
+				() -> this.spring.register(AuthorizationServerConfigurationWithInvalidIssuerUri.class).autowire());
 	}
 
 	@Test
 	public void loadContextWhenIssuerWithQueryThenThrowException() {
 		assertThatThrownBy(
-				() -> this.spring.register(AuthorizationServerConfigurationWithIssuerQuery.class).autowire()
-		);
+				() -> this.spring.register(AuthorizationServerConfigurationWithIssuerQuery.class).autowire());
 	}
 
 	@Test
 	public void loadContextWhenIssuerWithFragmentThenThrowException() {
 		assertThatThrownBy(
-				() -> this.spring.register(AuthorizationServerConfigurationWithIssuerFragment.class).autowire()
-		);
+				() -> this.spring.register(AuthorizationServerConfigurationWithIssuerFragment.class).autowire());
 	}
 
 	@Test
 	public void loadContextWhenIssuerWithQueryAndFragmentThenThrowException() {
-		assertThatThrownBy(
-				() -> this.spring.register(AuthorizationServerConfigurationWithIssuerQueryAndFragment.class).autowire()
-		);
+		assertThatThrownBy(() -> this.spring.register(AuthorizationServerConfigurationWithIssuerQueryAndFragment.class)
+			.autowire());
 	}
 
 	@Test
 	public void loadContextWhenIssuerWithEmptyQueryThenThrowException() {
 		assertThatThrownBy(
-				() -> this.spring.register(AuthorizationServerConfigurationWithIssuerEmptyQuery.class).autowire()
-		);
+				() -> this.spring.register(AuthorizationServerConfigurationWithIssuerEmptyQuery.class).autowire());
 	}
 
 	@Test
 	public void loadContextWhenIssuerWithEmptyFragmentThenThrowException() {
 		assertThatThrownBy(
-				() -> this.spring.register(AuthorizationServerConfigurationWithIssuerEmptyFragment.class).autowire()
-		);
+				() -> this.spring.register(AuthorizationServerConfigurationWithIssuerEmptyFragment.class).autowire());
 	}
 
 	@EnableWebSecurity
+	@Configuration(proxyBeanMethods = false)
 	static class AuthorizationServerConfiguration {
 
 		@Bean
 		SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
 			OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
-			http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
-					.oidc(Customizer.withDefaults());	// Enable OpenID Connect 1.0
+			// Enable OpenID Connect 1.0
+			http.getConfigurer(OAuth2AuthorizationServerConfigurer.class).oidc(Customizer.withDefaults());
 			return http.build();
 		}
 
@@ -217,53 +236,26 @@ public class OidcProviderConfigurationTests {
 
 		@Bean
 		AuthorizationServerSettings authorizationServerSettings() {
-			return AuthorizationServerSettings.builder()
-					.issuer(ISSUER_URL)
-					.build();
+			return AuthorizationServerSettings.builder().issuer(ISSUER).build();
 		}
 
 	}
 
 	@EnableWebSecurity
 	@Configuration(proxyBeanMethods = false)
-	static class AuthorizationServerConfigurationWithProviderConfigurationCustomizer extends AuthorizationServerConfiguration {
+	static class AuthorizationServerConfigurationWithMultipleIssuersAllowed extends AuthorizationServerConfiguration {
 
-		// @formatter:off
 		@Bean
-		public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
-			OAuth2AuthorizationServerConfigurer authorizationServerConfigurer =
-					new OAuth2AuthorizationServerConfigurer();
-			http.apply(authorizationServerConfigurer);
-
-			authorizationServerConfigurer
-					.oidc(oidc ->
-							oidc.providerConfigurationEndpoint(providerConfigurationEndpoint ->
-									providerConfigurationEndpoint
-											.providerConfigurationCustomizer(providerConfigurationCustomizer())));
-
-			RequestMatcher endpointsMatcher = authorizationServerConfigurer.getEndpointsMatcher();
-
-			http
-					.securityMatcher(endpointsMatcher)
-					.authorizeHttpRequests(authorize ->
-							authorize.anyRequest().authenticated()
-					)
-					.csrf(csrf -> csrf.ignoringRequestMatchers(endpointsMatcher));
-
-			return http.build();
-		}
-		// @formatter:on
-
-		private Consumer<OidcProviderConfiguration.Builder> providerConfigurationCustomizer() {
-			return (providerConfiguration) ->
-					providerConfiguration.scope(OidcScopes.PROFILE).scope(OidcScopes.EMAIL);
+		AuthorizationServerSettings authorizationServerSettings() {
+			return AuthorizationServerSettings.builder().multipleIssuersAllowed(true).build();
 		}
 
 	}
 
 	@EnableWebSecurity
 	@Configuration(proxyBeanMethods = false)
-	static class AuthorizationServerConfigurationWithClientRegistrationEnabled extends AuthorizationServerConfiguration {
+	static class AuthorizationServerConfigurationWithProviderConfigurationCustomizer
+			extends AuthorizationServerConfiguration {
 
 		// @formatter:off
 		@Bean
@@ -273,7 +265,44 @@ public class OidcProviderConfigurationTests {
 			http.apply(authorizationServerConfigurer);
 
 			authorizationServerConfigurer
-					.oidc(oidc ->
+					.oidc((oidc) ->
+							oidc.providerConfigurationEndpoint((providerConfigurationEndpoint) ->
+									providerConfigurationEndpoint
+											.providerConfigurationCustomizer(providerConfigurationCustomizer())));
+
+			RequestMatcher endpointsMatcher = authorizationServerConfigurer.getEndpointsMatcher();
+
+			http
+					.securityMatcher(endpointsMatcher)
+					.authorizeHttpRequests((authorize) ->
+							authorize.anyRequest().authenticated()
+					)
+					.csrf((csrf) -> csrf.ignoringRequestMatchers(endpointsMatcher));
+
+			return http.build();
+		}
+		// @formatter:on
+
+		private Consumer<OidcProviderConfiguration.Builder> providerConfigurationCustomizer() {
+			return (providerConfiguration) -> providerConfiguration.scope(OidcScopes.PROFILE).scope(OidcScopes.EMAIL);
+		}
+
+	}
+
+	@EnableWebSecurity
+	@Configuration(proxyBeanMethods = false)
+	static class AuthorizationServerConfigurationWithClientRegistrationEnabled
+			extends AuthorizationServerConfiguration {
+
+		// @formatter:off
+		@Bean
+		SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
+			OAuth2AuthorizationServerConfigurer authorizationServerConfigurer =
+					new OAuth2AuthorizationServerConfigurer();
+			http.apply(authorizationServerConfigurer);
+
+			authorizationServerConfigurer
+					.oidc((oidc) ->
 							oidc.clientRegistrationEndpoint(Customizer.withDefaults())
 					);
 
@@ -284,66 +313,80 @@ public class OidcProviderConfigurationTests {
 	}
 
 	@EnableWebSecurity
+	@Configuration(proxyBeanMethods = false)
 	static class AuthorizationServerConfigurationWithInvalidIssuerUrl extends AuthorizationServerConfiguration {
 
 		@Bean
 		AuthorizationServerSettings authorizationServerSettings() {
 			return AuthorizationServerSettings.builder().issuer("urn:example").build();
 		}
+
 	}
 
 	@EnableWebSecurity
+	@Configuration(proxyBeanMethods = false)
 	static class AuthorizationServerConfigurationWithInvalidIssuerUri extends AuthorizationServerConfiguration {
 
 		@Bean
 		AuthorizationServerSettings authorizationServerSettings() {
 			return AuthorizationServerSettings.builder().issuer("https://not a valid uri").build();
 		}
+
 	}
 
 	@EnableWebSecurity
+	@Configuration(proxyBeanMethods = false)
 	static class AuthorizationServerConfigurationWithIssuerQuery extends AuthorizationServerConfiguration {
 
 		@Bean
 		AuthorizationServerSettings authorizationServerSettings() {
-			return AuthorizationServerSettings.builder().issuer(ISSUER_URL + "?param=value").build();
+			return AuthorizationServerSettings.builder().issuer(ISSUER + "?param=value").build();
 		}
+
 	}
 
 	@EnableWebSecurity
+	@Configuration(proxyBeanMethods = false)
 	static class AuthorizationServerConfigurationWithIssuerFragment extends AuthorizationServerConfiguration {
 
 		@Bean
 		AuthorizationServerSettings authorizationServerSettings() {
-			return AuthorizationServerSettings.builder().issuer(ISSUER_URL + "#fragment").build();
+			return AuthorizationServerSettings.builder().issuer(ISSUER + "#fragment").build();
 		}
+
 	}
 
 	@EnableWebSecurity
+	@Configuration(proxyBeanMethods = false)
 	static class AuthorizationServerConfigurationWithIssuerQueryAndFragment extends AuthorizationServerConfiguration {
 
 		@Bean
 		AuthorizationServerSettings authorizationServerSettings() {
-			return AuthorizationServerSettings.builder().issuer(ISSUER_URL + "?param=value#fragment").build();
+			return AuthorizationServerSettings.builder().issuer(ISSUER + "?param=value#fragment").build();
 		}
+
 	}
 
 	@EnableWebSecurity
+	@Configuration(proxyBeanMethods = false)
 	static class AuthorizationServerConfigurationWithIssuerEmptyQuery extends AuthorizationServerConfiguration {
 
 		@Bean
 		AuthorizationServerSettings authorizationServerSettings() {
-			return AuthorizationServerSettings.builder().issuer(ISSUER_URL + "?").build();
+			return AuthorizationServerSettings.builder().issuer(ISSUER + "?").build();
 		}
+
 	}
 
 	@EnableWebSecurity
+	@Configuration(proxyBeanMethods = false)
 	static class AuthorizationServerConfigurationWithIssuerEmptyFragment extends AuthorizationServerConfiguration {
 
 		@Bean
 		AuthorizationServerSettings authorizationServerSettings() {
-			return AuthorizationServerSettings.builder().issuer(ISSUER_URL + "#").build();
+			return AuthorizationServerSettings.builder().issuer(ISSUER + "#").build();
 		}
+
 	}
 
 }

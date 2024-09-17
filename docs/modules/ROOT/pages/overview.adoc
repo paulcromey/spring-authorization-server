@@ -36,6 +36,7 @@ Spring Authorization Server supports the following features:
 * Refresh Token
 * Device Code
 ** xref:protocol-endpoints.adoc#oauth2-device-verification-endpoint[User Consent]
+* Token Exchange
 |
 * The OAuth 2.1 Authorization Framework (https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-07[draft])
 ** https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-07#section-4.1[Authorization Code Grant]
@@ -46,6 +47,8 @@ Spring Authorization Server supports the following features:
 * OAuth 2.0 Device Authorization Grant
 (https://tools.ietf.org/html/rfc8628[spec])
 ** https://tools.ietf.org/html/rfc8628#section-3[Device Flow]
+* OAuth 2.0 Token Exchange (https://datatracker.ietf.org/doc/html/rfc8693[spec])
+** https://datatracker.ietf.org/doc/html/rfc8693#section-2[Token Exchange Flow]
 
 |xref:core-model-components.adoc#oauth2-token-generator[Token Formats]
 |
@@ -61,10 +64,13 @@ Spring Authorization Server supports the following features:
 * `client_secret_post`
 * `client_secret_jwt`
 * `private_key_jwt`
+* `tls_client_auth`
+* `self_signed_tls_client_auth`
 * `none` (public clients)
 |
 * The OAuth 2.1 Authorization Framework (https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-07#section-2.4[Client Authentication])
 * JSON Web Token (JWT) Profile for OAuth 2.0 Client Authentication (https://tools.ietf.org/html/rfc7523[RFC 7523])
+* OAuth 2.0 Mutual-TLS Client Authentication and Certificate-Bound Access Tokens (https://datatracker.ietf.org/doc/html/rfc8705[RFC 8705])
 * Proof Key for Code Exchange by OAuth Public Clients (PKCE) (https://tools.ietf.org/html/rfc7636[RFC 7636])
 
 |xref:protocol-endpoints.adoc[Protocol Endpoints]

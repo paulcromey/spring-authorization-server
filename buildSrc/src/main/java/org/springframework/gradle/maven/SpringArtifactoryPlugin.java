@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,23 +37,20 @@ public class SpringArtifactoryPlugin implements Plugin<Project> {
 		boolean isSnapshot = ProjectUtils.isSnapshot(project);
 		boolean isMilestone = ProjectUtils.isMilestone(project);
 
-		@SuppressWarnings("deprecation")
-		ArtifactoryPluginConvention artifactoryExtension = project.getConvention().getPlugin(ArtifactoryPluginConvention.class);
-		artifactoryExtension.artifactory((artifactory) -> {
-			artifactory.setContextUrl("https://repo.spring.io");
-			artifactory.publish((publish) -> {
-				publish.repository((repository) -> {
-					String repoKey = isSnapshot ? "libs-snapshot-local" : isMilestone ? "libs-milestone-local" : "libs-release-local";
-					repository.setRepoKey(repoKey);
-					if (project.hasProperty("artifactoryUsername")) {
-						repository.setUsername(project.findProperty("artifactoryUsername"));
-						repository.setPassword(project.findProperty("artifactoryPassword"));
-					}
-				});
-				// Would fail if maven publish is not applied, i.e. in root project (SpringRootProjectPlugin)
-				project.getPlugins().withType(MavenPublishPlugin.class, mavenPublish -> {
-					publish.defaults((defaults) -> defaults.publications("mavenJava"));
-				});
+		ArtifactoryPluginConvention artifactoryExtension = project.getExtensions().getByType(ArtifactoryPluginConvention.class);
+		artifactoryExtension.publish((publish) -> {
+			publish.setContextUrl("https://repo.spring.io");
+			publish.repository((repository) -> {
+				String repoKey = isSnapshot ? "libs-snapshot-local" : isMilestone ? "libs-milestone-local" : "libs-release-local";
+				repository.setRepoKey(repoKey);
+				if (project.hasProperty("artifactoryUsername")) {
+					repository.setUsername((String) project.findProperty("artifactoryUsername"));
+					repository.setPassword((String) project.findProperty("artifactoryPassword"));
+				}
+			});
+			// Would fail if maven publish is not applied, i.e. in root project (SpringRootProjectPlugin)
+			project.getPlugins().withType(MavenPublishPlugin.class, mavenPublish -> {
+				publish.defaults((defaults) -> defaults.publications("mavenJava"));
 			});
 		});
 	}

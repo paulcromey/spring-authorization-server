@@ -52,12 +52,11 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.oauth2.server.authorization.authentication.OAuth2DeviceAuthorizationConsentAuthenticationProvider.STATE_TOKEN_TYPE;
 
 /**
  * Tests for {@link OAuth2DeviceAuthorizationConsentAuthenticationProvider}.
@@ -65,14 +64,21 @@ import static org.springframework.security.oauth2.server.authorization.authentic
  * @author Steve Riesenberg
  */
 public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
+
 	private static final String AUTHORIZATION_URI = "/oauth2/device_authorization";
+
 	private static final String DEVICE_CODE = "EfYu_0jEL";
+
 	private static final String USER_CODE = "BCDF-GHJK";
+
 	private static final String STATE = "abc123";
 
 	private RegisteredClientRepository registeredClientRepository;
+
 	private OAuth2AuthorizationService authorizationService;
+
 	private OAuth2AuthorizationConsentService authorizationConsentService;
+
 	private OAuth2DeviceAuthorizationConsentAuthenticationProvider authenticationProvider;
 
 	@BeforeEach
@@ -125,7 +131,8 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 
 	@Test
 	public void supportsWhenTypeOAuth2DeviceAuthorizationConsentAuthenticationTokenThenReturnTrue() {
-		assertThat(this.authenticationProvider.supports(OAuth2DeviceAuthorizationConsentAuthenticationToken.class)).isTrue();
+		assertThat(this.authenticationProvider.supports(OAuth2DeviceAuthorizationConsentAuthenticationToken.class))
+			.isTrue();
 	}
 
 	@Test
@@ -141,7 +148,8 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 				.isEqualTo(OAuth2ErrorCodes.INVALID_REQUEST);
 		// @formatter:on
 
-		verify(this.authorizationService).findByToken(STATE, STATE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(STATE,
+				OAuth2DeviceAuthorizationConsentAuthenticationProvider.STATE_TOKEN_TYPE);
 		verifyNoInteractions(this.registeredClientRepository, this.authorizationConsentService);
 	}
 
@@ -149,7 +157,7 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 	public void authenticateWhenPrincipalIsNotAuthenticatedThenThrowOAuth2AuthenticationException() {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		OAuth2Authorization authorization = createAuthorization(registeredClient);
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
 		TestingAuthenticationToken principal = new TestingAuthenticationToken(authorization.getPrincipalName(), null);
 		Authentication authentication = new OAuth2DeviceAuthorizationConsentAuthenticationToken(AUTHORIZATION_URI,
 				registeredClient.getClientId(), principal, USER_CODE, STATE, null, Collections.emptyMap());
@@ -162,7 +170,8 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 				.isEqualTo(OAuth2ErrorCodes.INVALID_REQUEST);
 		// @formatter:on
 
-		verify(this.authorizationService).findByToken(STATE, STATE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(STATE,
+				OAuth2DeviceAuthorizationConsentAuthenticationProvider.STATE_TOKEN_TYPE);
 		verifyNoInteractions(this.registeredClientRepository, this.authorizationConsentService);
 	}
 
@@ -170,7 +179,7 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 	public void authenticateWhenPrincipalNameDoesNotMatchThenThrowOAuth2AuthenticationException() {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		OAuth2Authorization authorization = createAuthorization(registeredClient);
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
 		TestingAuthenticationToken principal = new TestingAuthenticationToken("invalid", null, Collections.emptyList());
 		Authentication authentication = new OAuth2DeviceAuthorizationConsentAuthenticationToken(AUTHORIZATION_URI,
 				registeredClient.getClientId(), principal, USER_CODE, STATE, null, Collections.emptyMap());
@@ -183,7 +192,8 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 				.isEqualTo(OAuth2ErrorCodes.INVALID_REQUEST);
 		// @formatter:on
 
-		verify(this.authorizationService).findByToken(STATE, STATE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(STATE,
+				OAuth2DeviceAuthorizationConsentAuthenticationProvider.STATE_TOKEN_TYPE);
 		verifyNoInteractions(this.registeredClientRepository, this.authorizationConsentService);
 	}
 
@@ -191,7 +201,7 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 	public void authenticateWhenRegisteredClientNotFoundThenThrowOAuth2AuthenticationException() {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		OAuth2Authorization authorization = createAuthorization(registeredClient);
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
 		Authentication authentication = createAuthentication(registeredClient);
 		// @formatter:off
 		assertThatExceptionOfType(OAuth2AuthenticationException.class)
@@ -203,7 +213,8 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 		// @formatter:on
 
 		verify(this.registeredClientRepository).findByClientId(registeredClient.getClientId());
-		verify(this.authorizationService).findByToken(STATE, STATE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(STATE,
+				OAuth2DeviceAuthorizationConsentAuthenticationProvider.STATE_TOKEN_TYPE);
 		verifyNoMoreInteractions(this.registeredClientRepository, this.authorizationService);
 		verifyNoInteractions(this.authorizationConsentService);
 	}
@@ -213,8 +224,8 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		RegisteredClient registeredClient2 = TestRegisteredClients.registeredClient2().build();
 		OAuth2Authorization authorization = createAuthorization(registeredClient2);
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
-		when(this.registeredClientRepository.findByClientId(anyString())).thenReturn(registeredClient);
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
+		given(this.registeredClientRepository.findByClientId(anyString())).willReturn(registeredClient);
 		Authentication authentication = createAuthentication(registeredClient);
 		// @formatter:off
 		assertThatExceptionOfType(OAuth2AuthenticationException.class)
@@ -226,7 +237,8 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 		// @formatter:on
 
 		verify(this.registeredClientRepository).findByClientId(registeredClient.getClientId());
-		verify(this.authorizationService).findByToken(STATE, STATE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(STATE,
+				OAuth2DeviceAuthorizationConsentAuthenticationProvider.STATE_TOKEN_TYPE);
 		verifyNoMoreInteractions(this.registeredClientRepository, this.authorizationService);
 		verifyNoInteractions(this.authorizationConsentService);
 	}
@@ -234,11 +246,13 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 	@Test
 	public void authenticateWhenRequestedScopesNotAuthorizedThenThrowOAuth2AuthenticationException() {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
-		RegisteredClient registeredClient2 = TestRegisteredClients.registeredClient().scopes(Set::clear)
-				.scope("invalid").build();
+		RegisteredClient registeredClient2 = TestRegisteredClients.registeredClient()
+			.scopes(Set::clear)
+			.scope("invalid")
+			.build();
 		OAuth2Authorization authorization = createAuthorization(registeredClient);
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
-		when(this.registeredClientRepository.findByClientId(anyString())).thenReturn(registeredClient);
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
+		given(this.registeredClientRepository.findByClientId(anyString())).willReturn(registeredClient);
 		Authentication authentication = createAuthentication(registeredClient2);
 		// @formatter:off
 		assertThatExceptionOfType(OAuth2AuthenticationException.class)
@@ -250,7 +264,8 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 		// @formatter:on
 
 		verify(this.registeredClientRepository).findByClientId(registeredClient.getClientId());
-		verify(this.authorizationService).findByToken(STATE, STATE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(STATE,
+				OAuth2DeviceAuthorizationConsentAuthenticationProvider.STATE_TOKEN_TYPE);
 		verifyNoMoreInteractions(this.registeredClientRepository, this.authorizationService);
 		verifyNoInteractions(this.authorizationConsentService);
 	}
@@ -261,8 +276,8 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 		RegisteredClient registeredClient2 = TestRegisteredClients.registeredClient().scopes(Set::clear).build();
 		OAuth2Authorization authorization = createAuthorization(registeredClient2);
 		Authentication authentication = createAuthentication(registeredClient2);
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
-		when(this.registeredClientRepository.findByClientId(anyString())).thenReturn(registeredClient);
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
+		given(this.registeredClientRepository.findByClientId(anyString())).willReturn(registeredClient);
 		// @formatter:off
 		assertThatExceptionOfType(OAuth2AuthenticationException.class)
 				.isThrownBy(() -> this.authenticationProvider.authenticate(authentication))
@@ -272,7 +287,8 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 		// @formatter:on
 
 		ArgumentCaptor<OAuth2Authorization> authorizationCaptor = ArgumentCaptor.forClass(OAuth2Authorization.class);
-		verify(this.authorizationService).findByToken(STATE, STATE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(STATE,
+				OAuth2DeviceAuthorizationConsentAuthenticationProvider.STATE_TOKEN_TYPE);
 		verify(this.registeredClientRepository).findByClientId(registeredClient.getClientId());
 		verify(this.authorizationConsentService).findById(registeredClient.getId(), authentication.getName());
 		verify(this.authorizationService).save(authorizationCaptor.capture());
@@ -295,19 +311,20 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 	public void authenticateWhenAuthoritiesIsNotEmptyThenAuthorizationConsentSaved() {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		OAuth2Authorization authorization = createAuthorization(registeredClient);
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
-		when(this.registeredClientRepository.findByClientId(anyString())).thenReturn(registeredClient);
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
+		given(this.registeredClientRepository.findByClientId(anyString())).willReturn(registeredClient);
 
 		Authentication authentication = createAuthentication(registeredClient);
-		OAuth2DeviceVerificationAuthenticationToken authenticationResult =
-				(OAuth2DeviceVerificationAuthenticationToken) this.authenticationProvider.authenticate(authentication);
+		OAuth2DeviceVerificationAuthenticationToken authenticationResult = (OAuth2DeviceVerificationAuthenticationToken) this.authenticationProvider
+			.authenticate(authentication);
 		assertThat(authenticationResult.isAuthenticated()).isTrue();
 		assertThat(authenticationResult.getClientId()).isEqualTo(registeredClient.getClientId());
 		assertThat(authenticationResult.getPrincipal()).isSameAs(authentication.getPrincipal());
 		assertThat(authenticationResult.getUserCode()).isEqualTo(USER_CODE);
 
 		ArgumentCaptor<OAuth2Authorization> authorizationCaptor = ArgumentCaptor.forClass(OAuth2Authorization.class);
-		verify(this.authorizationService).findByToken(STATE, STATE_TOKEN_TYPE);
+		verify(this.authorizationService).findByToken(STATE,
+				OAuth2DeviceAuthorizationConsentAuthenticationProvider.STATE_TOKEN_TYPE);
 		verify(this.registeredClientRepository).findByClientId(registeredClient.getClientId());
 		verify(this.authorizationConsentService).findById(registeredClient.getId(), authentication.getName());
 		verify(this.authorizationConsentService).save(any(OAuth2AuthorizationConsent.class));
@@ -333,8 +350,10 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 	@Test
 	public void authenticateWhenExistingAuthorizationConsentThenUpdated() {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().scope("additional").build();
-		RegisteredClient registeredClient2 = TestRegisteredClients.registeredClient().scopes(Set::clear)
-				.scope("additional").build();
+		RegisteredClient registeredClient2 = TestRegisteredClients.registeredClient()
+			.scopes(Set::clear)
+			.scope("additional")
+			.build();
 		OAuth2Authorization authorization = createAuthorization(registeredClient2);
 		Authentication authentication = createAuthentication(registeredClient2);
 		// @formatter:off
@@ -342,20 +361,21 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 				OAuth2AuthorizationConsent.withId(registeredClient.getId(), authentication.getName())
 						.scope("scope1").build();
 		// @formatter:on
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
-		when(this.registeredClientRepository.findByClientId(anyString())).thenReturn(registeredClient);
-		when(this.authorizationConsentService.findById(anyString(), anyString())).thenReturn(authorizationConsent);
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
+		given(this.registeredClientRepository.findByClientId(anyString())).willReturn(registeredClient);
+		given(this.authorizationConsentService.findById(anyString(), anyString())).willReturn(authorizationConsent);
 
-		OAuth2DeviceVerificationAuthenticationToken authenticationResult =
-				(OAuth2DeviceVerificationAuthenticationToken) this.authenticationProvider.authenticate(authentication);
+		OAuth2DeviceVerificationAuthenticationToken authenticationResult = (OAuth2DeviceVerificationAuthenticationToken) this.authenticationProvider
+			.authenticate(authentication);
 		assertThat(authenticationResult.isAuthenticated()).isTrue();
 		assertThat(authenticationResult.getClientId()).isEqualTo(registeredClient.getClientId());
 		assertThat(authenticationResult.getPrincipal()).isSameAs(authentication.getPrincipal());
 		assertThat(authenticationResult.getUserCode()).isEqualTo(USER_CODE);
 
-		ArgumentCaptor<OAuth2AuthorizationConsent> authorizationConsentCaptor = ArgumentCaptor.forClass(
-				OAuth2AuthorizationConsent.class);
-		verify(this.authorizationService).findByToken(STATE, STATE_TOKEN_TYPE);
+		ArgumentCaptor<OAuth2AuthorizationConsent> authorizationConsentCaptor = ArgumentCaptor
+			.forClass(OAuth2AuthorizationConsent.class);
+		verify(this.authorizationService).findByToken(STATE,
+				OAuth2DeviceAuthorizationConsentAuthenticationProvider.STATE_TOKEN_TYPE);
 		verify(this.registeredClientRepository).findByClientId(registeredClient.getClientId());
 		verify(this.authorizationConsentService).findById(registeredClient.getId(), authentication.getName());
 		verify(this.authorizationConsentService).save(authorizationConsentCaptor.capture());
@@ -372,26 +392,27 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 	@Test
 	public void authenticateWhenAuthorizationConsentCustomizerSetThenUsed() {
 		SimpleGrantedAuthority customAuthority = new SimpleGrantedAuthority("test");
-		this.authenticationProvider.setAuthorizationConsentCustomizer((context) -> context.getAuthorizationConsent()
-				.authority(customAuthority));
+		this.authenticationProvider.setAuthorizationConsentCustomizer(
+				(context) -> context.getAuthorizationConsent().authority(customAuthority));
 
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().scopes(Set::clear).build();
 		OAuth2Authorization authorization = createAuthorization(registeredClient);
 		Authentication authentication = createAuthentication(registeredClient);
-		when(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).thenReturn(authorization);
-		when(this.registeredClientRepository.findByClientId(anyString())).thenReturn(registeredClient);
-		when(this.authorizationConsentService.findById(anyString(), anyString())).thenReturn(null);
+		given(this.authorizationService.findByToken(anyString(), any(OAuth2TokenType.class))).willReturn(authorization);
+		given(this.registeredClientRepository.findByClientId(anyString())).willReturn(registeredClient);
+		given(this.authorizationConsentService.findById(anyString(), anyString())).willReturn(null);
 
-		OAuth2DeviceVerificationAuthenticationToken authenticationResult =
-				(OAuth2DeviceVerificationAuthenticationToken) this.authenticationProvider.authenticate(authentication);
+		OAuth2DeviceVerificationAuthenticationToken authenticationResult = (OAuth2DeviceVerificationAuthenticationToken) this.authenticationProvider
+			.authenticate(authentication);
 		assertThat(authenticationResult.isAuthenticated()).isTrue();
 		assertThat(authenticationResult.getClientId()).isEqualTo(registeredClient.getClientId());
 		assertThat(authenticationResult.getPrincipal()).isSameAs(authentication.getPrincipal());
 		assertThat(authenticationResult.getUserCode()).isEqualTo(USER_CODE);
 
-		ArgumentCaptor<OAuth2AuthorizationConsent> authorizationConsentCaptor = ArgumentCaptor.forClass(
-				OAuth2AuthorizationConsent.class);
-		verify(this.authorizationService).findByToken(STATE, STATE_TOKEN_TYPE);
+		ArgumentCaptor<OAuth2AuthorizationConsent> authorizationConsentCaptor = ArgumentCaptor
+			.forClass(OAuth2AuthorizationConsent.class);
+		verify(this.authorizationService).findByToken(STATE,
+				OAuth2DeviceAuthorizationConsentAuthenticationProvider.STATE_TOKEN_TYPE);
 		verify(this.registeredClientRepository).findByClientId(registeredClient.getClientId());
 		verify(this.authorizationConsentService).findById(registeredClient.getId(), authentication.getName());
 		verify(this.authorizationConsentService).save(authorizationConsentCaptor.capture());
@@ -417,8 +438,10 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 		// @formatter:on
 	}
 
-	private static OAuth2DeviceAuthorizationConsentAuthenticationToken createAuthentication(RegisteredClient registeredClient) {
-		TestingAuthenticationToken principal = new TestingAuthenticationToken("principal", null, Collections.emptyList());
+	private static OAuth2DeviceAuthorizationConsentAuthenticationToken createAuthentication(
+			RegisteredClient registeredClient) {
+		TestingAuthenticationToken principal = new TestingAuthenticationToken("principal", null,
+				Collections.emptyList());
 		Set<String> authorizedScopes = registeredClient.getScopes();
 		if (authorizedScopes.isEmpty()) {
 			authorizedScopes = null;
@@ -441,4 +464,5 @@ public class OAuth2DeviceAuthorizationConsentAuthenticationProviderTests {
 	private static Function<OAuth2Authorization.Token<? extends OAuth2Token>, Boolean> isInvalidated() {
 		return (token) -> token.getMetadata(OAuth2Authorization.Token.INVALIDATED_METADATA_NAME);
 	}
+
 }

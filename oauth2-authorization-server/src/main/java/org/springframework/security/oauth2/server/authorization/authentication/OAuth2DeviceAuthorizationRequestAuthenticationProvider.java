@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 the original author or authors.
+ * Copyright 2020-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import java.util.Set;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.springframework.core.log.LogMessage;
 import org.springframework.lang.Nullable;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
@@ -49,8 +50,6 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 
-import static org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthenticationProviderUtils.getAuthenticatedClientElseThrowInvalidClient;
-
 /**
  * An {@link AuthenticationProvider} implementation for the Device Authorization Request
  * used in the OAuth 2.0 Device Authorization Grant.
@@ -63,8 +62,11 @@ import static org.springframework.security.oauth2.server.authorization.authentic
  * @see OAuth2DeviceCodeAuthenticationProvider
  * @see OAuth2AuthorizationService
  * @see OAuth2TokenGenerator
- * @see <a target="_blank" href="https://datatracker.ietf.org/doc/html/rfc8628">OAuth 2.0 Device Authorization Grant</a>
- * @see <a target="_blank" href="https://datatracker.ietf.org/doc/html/rfc8628#section-3.1">Section 3.1 Device Authorization Request</a>
+ * @see <a target="_blank" href="https://datatracker.ietf.org/doc/html/rfc8628">OAuth 2.0
+ * Device Authorization Grant</a>
+ * @see <a target="_blank" href=
+ * "https://datatracker.ietf.org/doc/html/rfc8628#section-3.1">Section 3.1 Device
+ * Authorization Request</a>
  */
 public final class OAuth2DeviceAuthorizationRequestAuthenticationProvider implements AuthenticationProvider {
 
@@ -73,13 +75,16 @@ public final class OAuth2DeviceAuthorizationRequestAuthenticationProvider implem
 	static final OAuth2TokenType USER_CODE_TOKEN_TYPE = new OAuth2TokenType(OAuth2ParameterNames.USER_CODE);
 
 	private final Log logger = LogFactory.getLog(getClass());
+
 	private final OAuth2AuthorizationService authorizationService;
+
 	private OAuth2TokenGenerator<OAuth2DeviceCode> deviceCodeGenerator = new OAuth2DeviceCodeGenerator();
+
 	private OAuth2TokenGenerator<OAuth2UserCode> userCodeGenerator = new OAuth2UserCodeGenerator();
 
 	/**
-	 * Constructs an {@code OAuth2DeviceAuthorizationRequestAuthenticationProvider} using the provided parameters.
-	 *
+	 * Constructs an {@code OAuth2DeviceAuthorizationRequestAuthenticationProvider} using
+	 * the provided parameters.
 	 * @param authorizationService the authorization service
 	 */
 	public OAuth2DeviceAuthorizationRequestAuthenticationProvider(OAuth2AuthorizationService authorizationService) {
@@ -89,11 +94,10 @@ public final class OAuth2DeviceAuthorizationRequestAuthenticationProvider implem
 
 	@Override
 	public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-		OAuth2DeviceAuthorizationRequestAuthenticationToken deviceAuthorizationRequestAuthentication =
-				(OAuth2DeviceAuthorizationRequestAuthenticationToken) authentication;
+		OAuth2DeviceAuthorizationRequestAuthenticationToken deviceAuthorizationRequestAuthentication = (OAuth2DeviceAuthorizationRequestAuthenticationToken) authentication;
 
-		OAuth2ClientAuthenticationToken clientPrincipal =
-				getAuthenticatedClientElseThrowInvalidClient(deviceAuthorizationRequestAuthentication);
+		OAuth2ClientAuthenticationToken clientPrincipal = OAuth2AuthenticationProviderUtils
+			.getAuthenticatedClientElseThrowInvalidClient(deviceAuthorizationRequestAuthentication);
 		RegisteredClient registeredClient = clientPrincipal.getRegisteredClient();
 
 		if (this.logger.isTraceEnabled()) {
@@ -101,6 +105,11 @@ public final class OAuth2DeviceAuthorizationRequestAuthenticationProvider implem
 		}
 
 		if (!registeredClient.getAuthorizationGrantTypes().contains(AuthorizationGrantType.DEVICE_CODE)) {
+			if (this.logger.isDebugEnabled()) {
+				this.logger.debug(LogMessage.format(
+						"Invalid request: requested grant_type is not allowed" + " for registered client '%s'",
+						registeredClient.getId()));
+			}
 			throwError(OAuth2ErrorCodes.UNAUTHORIZED_CLIENT, OAuth2ParameterNames.CLIENT_ID);
 		}
 
@@ -171,8 +180,8 @@ public final class OAuth2DeviceAuthorizationRequestAuthenticationProvider implem
 			this.logger.trace("Authenticated device authorization request");
 		}
 
-		return new OAuth2DeviceAuthorizationRequestAuthenticationToken(
-				clientPrincipal, requestedScopes, deviceCode, userCode);
+		return new OAuth2DeviceAuthorizationRequestAuthenticationToken(clientPrincipal, requestedScopes, deviceCode,
+				userCode);
 	}
 
 	@Override
@@ -182,8 +191,8 @@ public final class OAuth2DeviceAuthorizationRequestAuthenticationProvider implem
 
 	/**
 	 * Sets the {@link OAuth2TokenGenerator} that generates the {@link OAuth2DeviceCode}.
-	 *
-	 * @param deviceCodeGenerator the {@link OAuth2TokenGenerator} that generates the {@link OAuth2DeviceCode}
+	 * @param deviceCodeGenerator the {@link OAuth2TokenGenerator} that generates the
+	 * {@link OAuth2DeviceCode}
 	 */
 	public void setDeviceCodeGenerator(OAuth2TokenGenerator<OAuth2DeviceCode> deviceCodeGenerator) {
 		Assert.notNull(deviceCodeGenerator, "deviceCodeGenerator cannot be null");
@@ -192,8 +201,8 @@ public final class OAuth2DeviceAuthorizationRequestAuthenticationProvider implem
 
 	/**
 	 * Sets the {@link OAuth2TokenGenerator} that generates the {@link OAuth2UserCode}.
-	 *
-	 * @param userCodeGenerator the {@link OAuth2TokenGenerator} that generates the {@link OAuth2UserCode}
+	 * @param userCodeGenerator the {@link OAuth2TokenGenerator} that generates the
+	 * {@link OAuth2UserCode}
 	 */
 	public void setUserCodeGenerator(OAuth2TokenGenerator<OAuth2UserCode> userCodeGenerator) {
 		Assert.notNull(userCodeGenerator, "userCodeGenerator cannot be null");
@@ -207,18 +216,19 @@ public final class OAuth2DeviceAuthorizationRequestAuthenticationProvider implem
 
 	private static final class OAuth2DeviceCodeGenerator implements OAuth2TokenGenerator<OAuth2DeviceCode> {
 
-		private final StringKeyGenerator deviceCodeGenerator =
-				new Base64StringKeyGenerator(Base64.getUrlEncoder().withoutPadding(), 96);
+		private final StringKeyGenerator deviceCodeGenerator = new Base64StringKeyGenerator(
+				Base64.getUrlEncoder().withoutPadding(), 96);
 
 		@Nullable
 		@Override
 		public OAuth2DeviceCode generate(OAuth2TokenContext context) {
-			if (context.getTokenType() == null ||
-					!OAuth2ParameterNames.DEVICE_CODE.equals(context.getTokenType().getValue())) {
+			if (context.getTokenType() == null
+					|| !OAuth2ParameterNames.DEVICE_CODE.equals(context.getTokenType().getValue())) {
 				return null;
 			}
 			Instant issuedAt = Instant.now();
-			Instant expiresAt = issuedAt.plus(context.getRegisteredClient().getTokenSettings().getDeviceCodeTimeToLive());
+			Instant expiresAt = issuedAt
+				.plus(context.getRegisteredClient().getTokenSettings().getDeviceCodeTimeToLive());
 			return new OAuth2DeviceCode(this.deviceCodeGenerator.generateKey(), issuedAt, expiresAt);
 		}
 
@@ -256,12 +266,13 @@ public final class OAuth2DeviceAuthorizationRequestAuthenticationProvider implem
 		@Nullable
 		@Override
 		public OAuth2UserCode generate(OAuth2TokenContext context) {
-			if (context.getTokenType() == null ||
-					!OAuth2ParameterNames.USER_CODE.equals(context.getTokenType().getValue())) {
+			if (context.getTokenType() == null
+					|| !OAuth2ParameterNames.USER_CODE.equals(context.getTokenType().getValue())) {
 				return null;
 			}
 			Instant issuedAt = Instant.now();
-			Instant expiresAt = issuedAt.plus(context.getRegisteredClient().getTokenSettings().getDeviceCodeTimeToLive());
+			Instant expiresAt = issuedAt
+				.plus(context.getRegisteredClient().getTokenSettings().getDeviceCodeTimeToLive());
 			return new OAuth2UserCode(this.userCodeGenerator.generateKey(), issuedAt, expiresAt);
 		}
 

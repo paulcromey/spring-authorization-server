@@ -9,16 +9,18 @@ javaPlatform {
 dependencies {
 	api platform("org.springframework:spring-framework-bom:$springFrameworkVersion")
 	api platform("org.springframework.security:spring-security-bom:$springSecurityVersion")
-	api platform("com.fasterxml.jackson:jackson-bom:2.16.0")
+	api platform("com.fasterxml.jackson:jackson-bom:2.17.2")
 	constraints {
-		api "com.nimbusds:nimbus-jose-jwt:9.37.3"
+		api "com.nimbusds:nimbus-jose-jwt:9.41.1"
 		api "jakarta.servlet:jakarta.servlet-api:6.0.0"
-		api "org.junit.jupiter:junit-jupiter:5.10.1"
-		api "org.assertj:assertj-core:3.24.2"
+		api "org.bouncycastle:bcpkix-jdk18on:1.78.1"
+		api "org.bouncycastle:bcprov-jdk18on:1.78.1"
+		api "org.junit.jupiter:junit-jupiter:5.11.0"
+		api "org.assertj:assertj-core:3.26.3"
 		api "org.mockito:mockito-core:4.11.0"
 		api "com.squareup.okhttp3:mockwebserver:4.12.0"
 		api "com.squareup.okhttp3:okhttp:4.12.0"
-		api "com.jayway.jsonpath:json-path:2.8.0"
-		api "org.hsqldb:hsqldb:2.7.2"
+		api "com.jayway.jsonpath:json-path:2.9.0"
+		api "org.hsqldb:hsqldb:2.7.3"
 	}
 }

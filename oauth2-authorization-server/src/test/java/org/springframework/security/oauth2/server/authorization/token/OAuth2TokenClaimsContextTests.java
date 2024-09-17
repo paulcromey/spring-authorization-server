@@ -50,9 +50,8 @@ public class OAuth2TokenClaimsContextTests {
 
 	@Test
 	public void withWhenClaimsNullThenThrowIllegalArgumentException() {
-		assertThatThrownBy(() -> OAuth2TokenClaimsContext.with(null))
-				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessage("claimsBuilder cannot be null");
+		assertThatThrownBy(() -> OAuth2TokenClaimsContext.with(null)).isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("claimsBuilder cannot be null");
 	}
 
 	@Test
@@ -75,15 +74,17 @@ public class OAuth2TokenClaimsContextTests {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		OAuth2Authorization authorization = TestOAuth2Authorizations.authorization(registeredClient).build();
 		Authentication principal = authorization.getAttribute(Principal.class.getName());
-		AuthorizationServerSettings authorizationServerSettings = AuthorizationServerSettings.builder().issuer(issuer).build();
-		AuthorizationServerContext authorizationServerContext = new TestAuthorizationServerContext(authorizationServerSettings, null);
-		OAuth2ClientAuthenticationToken clientPrincipal = new OAuth2ClientAuthenticationToken(
-				registeredClient, ClientAuthenticationMethod.CLIENT_SECRET_BASIC, registeredClient.getClientSecret());
-		OAuth2AuthorizationRequest authorizationRequest = authorization.getAttribute(
-				OAuth2AuthorizationRequest.class.getName());
-		OAuth2AuthorizationCodeAuthenticationToken authorizationGrant =
-				new OAuth2AuthorizationCodeAuthenticationToken(
-						"code", clientPrincipal, authorizationRequest.getRedirectUri(), null);
+		AuthorizationServerSettings authorizationServerSettings = AuthorizationServerSettings.builder()
+			.issuer(issuer)
+			.build();
+		AuthorizationServerContext authorizationServerContext = new TestAuthorizationServerContext(
+				authorizationServerSettings, null);
+		OAuth2ClientAuthenticationToken clientPrincipal = new OAuth2ClientAuthenticationToken(registeredClient,
+				ClientAuthenticationMethod.CLIENT_SECRET_BASIC, registeredClient.getClientSecret());
+		OAuth2AuthorizationRequest authorizationRequest = authorization
+			.getAttribute(OAuth2AuthorizationRequest.class.getName());
+		OAuth2AuthorizationCodeAuthenticationToken authorizationGrant = new OAuth2AuthorizationCodeAuthenticationToken(
+				"code", clientPrincipal, authorizationRequest.getRedirectUri(), null);
 
 		// @formatter:off
 		OAuth2TokenClaimsContext context = OAuth2TokenClaimsContext.with(claims)
@@ -95,7 +96,7 @@ public class OAuth2TokenClaimsContextTests {
 				.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
 				.authorizationGrant(authorizationGrant)
 				.put("custom-key-1", "custom-value-1")
-				.context(ctx -> ctx.put("custom-key-2", "custom-value-2"))
+				.context((ctx) -> ctx.put("custom-key-2", "custom-value-2"))
 				.build();
 		// @formatter:on
 
@@ -106,7 +107,8 @@ public class OAuth2TokenClaimsContextTests {
 		assertThat(context.getAuthorization()).isEqualTo(authorization);
 		assertThat(context.getTokenType()).isEqualTo(OAuth2TokenType.ACCESS_TOKEN);
 		assertThat(context.getAuthorizationGrantType()).isEqualTo(AuthorizationGrantType.AUTHORIZATION_CODE);
-		assertThat(context.<OAuth2AuthorizationGrantAuthenticationToken>getAuthorizationGrant()).isEqualTo(authorizationGrant);
+		assertThat(context.<OAuth2AuthorizationGrantAuthenticationToken>getAuthorizationGrant())
+			.isEqualTo(authorizationGrant);
 		assertThat(context.<String>get("custom-key-1")).isEqualTo("custom-value-1");
 		assertThat(context.<String>get("custom-key-2")).isEqualTo("custom-value-2");
 	}
